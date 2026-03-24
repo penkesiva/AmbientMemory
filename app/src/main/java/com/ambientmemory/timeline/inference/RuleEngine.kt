@@ -11,7 +11,11 @@ data class InferenceOutput(
 
 class RuleEngine {
     fun infer(scene: SceneUnderstandingResult, activityState: String): InferenceOutput {
-        val tokens = scene.objects.map { it.lowercase() }.toSet()
+        val tokens =
+            scene.objects
+                .map { normalizeToken(it) }
+                .filter { it.isNotBlank() }
+                .toSet()
         val people = scene.peopleCount
         val place = scene.placeCategory
         val act = activityState.uppercase()
@@ -133,6 +137,89 @@ class RuleEngine {
             )
         }
 
+        if (act == "UNKNOWN") {
+            val workplaceCues =
+                place == "office" ||
+                    tokens.intersects("workspace", "workstation", "laptop", "monitor", "keyboard", "mouse", "desk", "computer", "notebook")
+            val socialCues = people >= 2 || tokens.intersects("people", "person", "group", "conversation")
+            val mealCues = tokens.intersects("food", "meal", "plate", "dish", "cup", "mug")
+            val exerciseCues = tokens.intersects("yoga", "mat", "dumbbell", "workout", "exercise", "stretch")
+            val householdCues = tokens.intersects("broom", "vacuum", "laundry", "sink", "kitchen", "cleaning")
+            val relaxCues = tokens.intersects("sofa", "couch", "bed", "pillow", "blanket", "tv", "television")
+            val indoorCues = place == "home" || place == "hallway" || tokens.intersects("room", "door", "wall", "mat", "rug")
+
+            if (workplaceCues && !mealCues && !exerciseCues) {
+                return InferenceOutput(
+                    activity = "working",
+                    confidence = 0.58f,
+                    whereLabel = if (place == "unknown") "office" else place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "workspace cues visible",
+                    whySummary = "likely focused work",
+                )
+            }
+            if (mealCues) {
+                return InferenceOutput(
+                    activity = "eating",
+                    confidence = 0.57f,
+                    whereLabel = if (place == "unknown") "home" else place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "food or tableware cues in scene",
+                    whySummary = "meal",
+                )
+            }
+            if (exerciseCues) {
+                return InferenceOutput(
+                    activity = "exercising",
+                    confidence = 0.56f,
+                    whereLabel = if (place == "unknown") "home" else place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "fitness or movement-related indoor cues",
+                    whySummary = "health or routine",
+                )
+            }
+            if (householdCues) {
+                return InferenceOutput(
+                    activity = "household",
+                    confidence = 0.54f,
+                    whereLabel = if (place == "unknown") "home" else place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "household object cues detected",
+                    whySummary = "daily chores",
+                )
+            }
+            if (socialCues && indoorCues) {
+                return InferenceOutput(
+                    activity = "socializing",
+                    confidence = 0.55f,
+                    whereLabel = if (place == "unknown") "home" else place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "multiple-person indoor context",
+                    whySummary = "social interaction",
+                )
+            }
+            if (place == "home" && relaxCues) {
+                return InferenceOutput(
+                    activity = "relaxing",
+                    confidence = 0.56f,
+                    whereLabel = place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "home comfort cues with no movement signal",
+                    whySummary = "downtime",
+                )
+            }
+            if (indoorCues) {
+                return InferenceOutput(
+                    activity = "sitting",
+                    confidence = 0.5f,
+                    whereLabel = if (place == "unknown") "home" else place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "indoor stationary context",
+                    whySummary = null,
+                )
+            }
+        }
+
         return InferenceOutput(
             activity = "unknown",
             confidence = 0.35f,
@@ -144,4 +231,13 @@ class RuleEngine {
     }
 
     private fun Set<String>.intersects(vararg terms: String): Boolean = terms.any { contains(it) }
+
+    private fun normalizeToken(token: String): String {
+        val t = token.lowercase().trim()
+        return when (t) {
+            "laptopm" -> "laptop"
+            "balck" -> "black"
+            else -> t
+        }.removeSuffix("s")
+    }
 }

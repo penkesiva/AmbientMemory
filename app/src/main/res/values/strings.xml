@@ -16,5 +16,9 @@
     <string name="events_label">%1$d events</string>
     <string name="confidence_label">Confidence %1$d%%</string>
     <string name="delete_all_data">Delete all stored sessions</string>
+    <string name="clear_database">Clear database</string>
+    <string name="clear_database_confirm">This will remove all captured sessions, events, scene results, and timeline summaries from this device.</string>
+    <string name="clear_now">Clear now</string>
+    <string name="cancel_action">Cancel</string>
     <string name="nav_back">Back</string>
 </resources>

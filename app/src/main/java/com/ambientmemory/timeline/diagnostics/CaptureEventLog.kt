@@ -17,4 +17,8 @@ object CaptureEventLog {
         val next = (_events.value + line).takeLast(MAX_ITEMS)
         _events.value = next
     }
+
+    fun clear() {
+        _events.value = emptyList()
+    }
 }

@@ -105,6 +105,11 @@ class SessionGrouper(
                 "commuting" -> "Commute"
                 "shopping" -> "Shopping"
                 "resting" -> "Rest"
+                "relaxing" -> "Relaxing"
+                "sitting" -> "Sitting"
+                "exercising" -> "Exercise"
+                "household" -> "Home tasks"
+                "socializing" -> "Social"
                 else -> "Moment"
             }
         return label

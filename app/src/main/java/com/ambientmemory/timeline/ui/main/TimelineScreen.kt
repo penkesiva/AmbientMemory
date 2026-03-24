@@ -218,23 +218,42 @@ private fun CollapsibleSessionCard(
                     events.take(maxEvents).forEach { ev ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column(Modifier.weight(1f)) {
+                                val whenText =
+                                    buildString {
+                                        append(dateFmt.format(Date(ev.startTimeMillis)))
+                                        append(" · ")
+                                        append(timeFmt.format(Date(ev.startTimeMillis)))
+                                    }
                                 Text(
                                     timeFmt.format(Date(ev.startTimeMillis)),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                Text(ev.activity.replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Medium)
                                 Text(
-                                    ev.whatSummary.ifBlank { ev.howSummary },
+                                    "Activity: ${ev.activity.replaceFirstChar { it.uppercase() }}",
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    "Where: ${ev.whereLabel.ifBlank { "unknown" }}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                                Text(
+                                    "What: ${ev.whatSummary.ifBlank { "No scene description" }}",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
-                                if (ev.whereLabel.isNotBlank() && ev.whereLabel != "unknown") {
-                                    Text(
-                                        ev.whereLabel,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.secondary,
-                                    )
-                                }
+                                Text(
+                                    "When: $whenText",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Text(
+                                    "Why: ${ev.whySummary?.takeIf { it.isNotBlank() } ?: "not inferred"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Text(
+                                    "How: ${ev.howSummary.ifBlank { "not inferred" }}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
                             }
                             val pct = (ev.confidence * 100).toInt().coerceIn(0, 100)
                             Text(

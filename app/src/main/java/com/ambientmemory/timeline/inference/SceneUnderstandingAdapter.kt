@@ -174,11 +174,15 @@ class SceneUnderstandingAdapter(
     }
 
     private fun inferPlace(tokens: List<String>): String {
-        val tokenSet = tokens.map { it.lowercase() }.toSet()
+        val tokenSet =
+            tokens
+                .map { normalizeToken(it) }
+                .filter { it.isNotBlank() }
+                .toSet()
         return when {
             tokenSet.intersects("vehicle", "car", "bus", "train") -> "vehicle"
             tokenSet.intersects("restaurant", "food", "meal", "dish") -> "restaurant"
-            tokenSet.intersects("office", "desk", "computer") -> "office"
+            tokenSet.intersects("office", "desk", "computer", "workspace", "workstation", "laptop", "monitor", "keyboard", "mouse", "screen") -> "office"
             tokenSet.intersects("sofa", "couch", "bed", "living", "room", "door", "wall", "socket", "plug") -> "home"
             tokenSet.intersects("tree", "grass", "road", "sky") -> "outdoors"
             tokenSet.intersects("hallway", "corridor", "stairs") -> "hallway"
@@ -187,6 +191,15 @@ class SceneUnderstandingAdapter(
     }
 
     private fun Set<String>.intersects(vararg terms: String): Boolean = terms.any { contains(it) }
+
+    private fun normalizeToken(token: String): String {
+        val t = token.lowercase().trim()
+        return when (t) {
+            "laptopm" -> "laptop"
+            "balck" -> "black"
+            else -> t
+        }.removeSuffix("s")
+    }
 
     fun toJsonPayload(scene: SceneUnderstandingResult): String {
         val o = JSONObject()

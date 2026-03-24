@@ -13,6 +13,7 @@ import com.ambientmemory.timeline.data.db.TimelineSessionEntity
 import com.ambientmemory.timeline.data.prefs.AppPreferenceDefaults
 import com.ambientmemory.timeline.data.prefs.AppPreferenceKeys
 import com.ambientmemory.timeline.data.prefs.appDataStore
+import com.ambientmemory.timeline.diagnostics.CaptureEventLog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -112,10 +113,12 @@ class MemoryRepository(
 
     suspend fun deleteAllUserData() {
         imageStorage.deleteAll()
+        dao.deleteAllScenes()
         dao.deleteAllInferred()
         dao.deleteAllTimelineSessions()
         dao.deleteAllRawCaptures()
         dao.deleteAllCaptureSessions()
+        CaptureEventLog.clear()
     }
 
     fun newCaptureFile(captureSessionId: Long) = imageStorage.newImageFile(captureSessionId)
