@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,6 +17,14 @@
           </div>
         </div>
         <div class="actions actionsRow">
+          <button
+            type="button"
+            id="themeToggleBtn"
+            class="btn"
+            aria-label="Switch to light theme"
+          >
+            Light mode
+          </button>
           <button type="button" id="open3dModalBtn" class="btn" disabled>
             Open 3D view
           </button>
@@ -81,11 +89,48 @@
           <button type="button" id="close3dModal" class="btn">Close</button>
         </div>
         <div id="modalPickSummary" class="viewer-modal__pick" aria-live="polite">
-          <strong>Selection</strong>
-          <p id="modalPickBody" class="viewer-modal__pickBody">
-            Click a dot to load that event here and in the Event detail panel. Each dot is one captured
-            moment; the line connects them in time order (filtered set).
-          </p>
+          <div class="viewer-modal__pickRow">
+            <button
+              type="button"
+              id="modalThumbBtn"
+              class="modal-thumbBtn"
+              hidden
+              aria-label="Enlarge image"
+            >
+              <img id="modalThumbImg" alt="" width="112" height="63" decoding="async" />
+            </button>
+            <div class="viewer-modal__pickText">
+              <strong>Selection</strong>
+              <div id="modalPickStructured" class="modal-pickStructured" hidden>
+                <div class="modal-pickTop">
+                  <span id="modalPickEventId" class="modal-pickBadge"></span>
+                  <time id="modalPickDateTime" class="modal-pickDatetime"></time>
+                </div>
+                <div class="modal-pickGrid">
+                  <div class="modal-pickCell">
+                    <span class="modal-pickLabel">Activity</span>
+                    <span id="modalPickActivity" class="modal-pickValue"></span>
+                  </div>
+                  <div class="modal-pickCell">
+                    <span class="modal-pickLabel">Where</span>
+                    <span id="modalPickWhere" class="modal-pickValue"></span>
+                  </div>
+                </div>
+                <div class="modal-pickMetrics" aria-label="Confidence scores">
+                  <span id="modalPickSceneMetric" class="modal-pickMetric"></span>
+                  <span id="modalPickActMetric" class="modal-pickMetric"></span>
+                </div>
+                <div id="modalPickWhatWrap" class="modal-pickWhatWrap" hidden>
+                  <span class="modal-pickLabel modal-pickLabel--what">What</span>
+                  <p id="modalPickWhatText" class="modal-pickWhatText"></p>
+                </div>
+              </div>
+              <p id="modalPickHint" class="modal-pickHint">
+                Click a dot to load that event here and in the Event detail panel. Each dot is one
+                captured moment; the line connects them in time order (filtered set).
+              </p>
+            </div>
+          </div>
         </div>
         <div id="modalLegend" class="viewer-modal__legend">
           <span class="viewer-modal__legendTitle">Reading this view</span>
@@ -98,6 +143,16 @@
           >
         </div>
         <div id="modalCanvasHost" class="viewer-modal__canvas"></div>
+      </div>
+    </div>
+
+    <div id="imageLightbox" class="image-lightbox" hidden aria-hidden="true">
+      <div class="image-lightbox__backdrop" data-close-lightbox aria-hidden="true"></div>
+      <div class="image-lightbox__content" role="dialog" aria-modal="true" aria-label="Enlarged image">
+        <button type="button" id="lightboxClose" class="image-lightbox__close" aria-label="Close">
+          ×
+        </button>
+        <img id="lightboxImg" class="image-lightbox__img" alt="" />
       </div>
     </div>
 

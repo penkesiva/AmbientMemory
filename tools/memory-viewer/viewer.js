@@ -16,7 +16,65 @@ const els = {
   activityConf: document.getElementById("activityConf"),
   reloadBtn: document.getElementById("reloadBtn"),
   status: document.getElementById("status"),
+  modalThumbBtn: document.getElementById("modalThumbBtn"),
+  modalThumbImg: document.getElementById("modalThumbImg"),
 };
+
+const THEME_KEY = "ambientMemoryViewerTheme";
+const imageLightbox = document.getElementById("imageLightbox");
+const lightboxImg = document.getElementById("lightboxImg");
+
+function applyTheme(theme) {
+  const t = theme === "light" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  try {
+    localStorage.setItem(THEME_KEY, t);
+  } catch {
+    /* ignore quota / private mode */
+  }
+  const btn = document.getElementById("themeToggleBtn");
+  if (btn) {
+    btn.textContent = t === "light" ? "Dark mode" : "Light mode";
+    btn.setAttribute(
+      "aria-label",
+      t === "light" ? "Switch to dark theme" : "Switch to light theme",
+    );
+  }
+}
+
+function initTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === "light" || stored === "dark") {
+      applyTheme(stored);
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+  const prefersLight =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: light)").matches;
+  applyTheme(prefersLight ? "light" : "dark");
+}
+
+function openImageLightbox(src, alt) {
+  if (!imageLightbox || !lightboxImg || !src) return;
+  lightboxImg.src = src;
+  lightboxImg.alt = alt || "Enlarged capture";
+  imageLightbox.hidden = false;
+  imageLightbox.setAttribute("aria-hidden", "false");
+}
+
+function closeImageLightbox() {
+  if (!imageLightbox || !lightboxImg) return;
+  imageLightbox.hidden = true;
+  imageLightbox.setAttribute("aria-hidden", "true");
+  lightboxImg.src = "";
+  lightboxImg.alt = "";
+}
+
+initTheme();
 
 function setStatus(msg, kind = "muted") {
   if (!els.status) return;
@@ -220,6 +278,71 @@ function makePointsScene({ positions, colors }) {
   return { group, points, geom, glowGeom };
 }
 
+const MODAL_WHAT_MAX_LEN = 720;
+const MODAL_PICK_HINT_DEFAULT =
+  "Click a dot to load that event here and in the Event detail panel. Each dot is one captured moment; the line connects them in time order (filtered set).";
+
+function setModalPickHint(message) {
+  const structured = document.getElementById("modalPickStructured");
+  const hint = document.getElementById("modalPickHint");
+  if (structured) structured.hidden = true;
+  if (hint) {
+    hint.hidden = false;
+    hint.textContent = message;
+  }
+}
+
+function fillModalPickFromEvent(e) {
+  const structured = document.getElementById("modalPickStructured");
+  const hint = document.getElementById("modalPickHint");
+  const whatWrap = document.getElementById("modalPickWhatWrap");
+  const whatText = document.getElementById("modalPickWhatText");
+  if (!structured) return;
+  if (hint) hint.hidden = true;
+  structured.hidden = false;
+
+  const id = e.id;
+  const activity = String(e.activity ?? "unknown").replace(/^./, (c) => c.toUpperCase());
+  const where = e.where_label ?? "unknown";
+  const scenePct = Math.round((Number(e.scene_confidence ?? 0.5) * 100) || 0);
+  const actPct = Math.round((Number(e.confidence ?? 0.5) * 100) || 0);
+  const rawWhat = String(e.what_summary ?? "").trim();
+
+  const idEl = document.getElementById("modalPickEventId");
+  const timeEl = document.getElementById("modalPickDateTime");
+  if (idEl) idEl.textContent = `#${id}`;
+  if (timeEl) {
+    timeEl.textContent = fmtTime(e.start_time_millis);
+    try {
+      timeEl.dateTime = new Date(Number(e.start_time_millis)).toISOString();
+    } catch {
+      timeEl.removeAttribute("datetime");
+    }
+  }
+  const actEl = document.getElementById("modalPickActivity");
+  const whereEl = document.getElementById("modalPickWhere");
+  if (actEl) actEl.textContent = activity;
+  if (whereEl) whereEl.textContent = where;
+  const sceneM = document.getElementById("modalPickSceneMetric");
+  const actM = document.getElementById("modalPickActMetric");
+  if (sceneM) sceneM.textContent = `Scene ${scenePct}%`;
+  if (actM) actM.textContent = `Activity ${actPct}%`;
+
+  if (whatWrap && whatText) {
+    if (rawWhat) {
+      const truncated =
+        rawWhat.length > MODAL_WHAT_MAX_LEN
+          ? `${rawWhat.slice(0, MODAL_WHAT_MAX_LEN)}…`
+          : rawWhat;
+      whatText.textContent = truncated;
+      whatWrap.hidden = false;
+    } else {
+      whatText.textContent = "";
+      whatWrap.hidden = true;
+    }
+  }
+}
+
 function updateHighlight(pointsGeom, baseColors, highlightIndex, glowGeom = null) {
   const c = pointsGeom.attributes.color.array;
   for (let i = 0; i < baseColors.length / 3; i++) {
@@ -286,22 +409,36 @@ function setEventDetails(events, e) {
   els.detailImg.onerror = () => {
     els.detailImg.src = "";
     els.detailImg.alt = "Image missing under data/captures/";
+    if (els.modalThumbBtn && els.modalThumbImg) {
+      els.modalThumbBtn.hidden = true;
+      els.modalThumbImg.src = "";
+    }
   };
+
+  if (els.modalThumbBtn && els.modalThumbImg) {
+    if (file) {
+      const capSrc = `./data/captures/${encodeURIComponent(file)}`;
+      els.modalThumbImg.src = capSrc;
+      els.modalThumbImg.alt = `Preview #${id}`;
+      els.modalThumbBtn.hidden = false;
+      els.modalThumbBtn.disabled = false;
+      els.modalThumbImg.onerror = () => {
+        els.modalThumbBtn.hidden = true;
+        els.modalThumbImg.src = "";
+      };
+    } else {
+      els.modalThumbImg.src = "";
+      els.modalThumbBtn.hidden = true;
+      els.modalThumbBtn.disabled = true;
+    }
+  }
 
   const scenePct = Math.round((Number(e.scene_confidence ?? 0.5) * 100) || 0);
   const actPct = Math.round((Number(e.confidence ?? 0.5) * 100) || 0);
   els.sceneConf.textContent = `Scene ${scenePct}%`;
   els.activityConf.textContent = `Activity ${actPct}%`;
 
-  const modalBody = document.getElementById("modalPickBody");
-  if (modalBody) {
-    const what = (e.what_summary ?? "").slice(0, 160);
-    modalBody.textContent =
-      `#${e.id} · ${fmtTime(e.start_time_millis)}\n` +
-      `Activity: ${e.activity ?? "?"} · Where: ${e.where_label ?? "?"}\n` +
-      `Scene ${scenePct}% · Activity ${actPct}%\n` +
-      (what ? `What: ${what}${(e.what_summary ?? "").length > 160 ? "…" : ""}` : "");
-  }
+  fillModalPickFromEvent(e);
 }
 
 let state = null;
@@ -323,6 +460,7 @@ function fitRendererToHost() {
 }
 
 function close3dModal() {
+  closeImageLightbox();
   if (!viewerModal || !mainCanvasHost || !state?.renderer) return;
   if (viewerModal.hidden) return;
   mainCanvasHost.appendChild(state.renderer.domElement);
@@ -338,6 +476,8 @@ function open3dModal() {
   viewerModal.setAttribute("aria-hidden", "false");
   if (state.highlightIndex >= 0 && state.events[state.highlightIndex]) {
     setEventDetails(state.events, state.events[state.highlightIndex]);
+  } else {
+    setModalPickHint(MODAL_PICK_HINT_DEFAULT);
   }
   requestAnimationFrame(() => {
     fitRendererToHost();
@@ -350,11 +490,34 @@ function bindViewerChromeOnce() {
   if (viewerChromeBound) return;
   viewerChromeBound = true;
   window.addEventListener("resize", () => fitRendererToHost());
+  document.getElementById("themeToggleBtn")?.addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme") || "dark";
+    applyTheme(cur === "light" ? "dark" : "light");
+  });
   open3dModalBtn?.addEventListener("click", () => open3dModal());
   document.getElementById("close3dModal")?.addEventListener("click", () => close3dModal());
   viewerModal?.querySelector("[data-close-modal]")?.addEventListener("click", () => close3dModal());
+  imageLightbox?.querySelector("[data-close-lightbox]")?.addEventListener("click", () =>
+    closeImageLightbox(),
+  );
+  document.getElementById("lightboxClose")?.addEventListener("click", () => closeImageLightbox());
+  els.modalThumbBtn?.addEventListener("click", () => {
+    const src = els.modalThumbImg?.src;
+    if (!src) return;
+    openImageLightbox(src, els.modalThumbImg.alt || "Enlarged capture");
+  });
+  els.detailImg?.addEventListener("click", () => {
+    const src = els.detailImg?.src;
+    if (!src) return;
+    openImageLightbox(src, els.detailImg.alt || "Enlarged capture");
+  });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (imageLightbox && !imageLightbox.hidden) {
+      e.preventDefault();
+      closeImageLightbox();
+      return;
+    }
     if (viewerModal && viewerModal.hidden === false) {
       e.preventDefault();
       close3dModal();
@@ -605,11 +768,9 @@ async function loadAndRender() {
       els.detailImg.src = "";
       els.sceneConf.textContent = "Scene —";
       els.activityConf.textContent = "Activity —";
-      const modalBody = document.getElementById("modalPickBody");
-      if (modalBody) {
-        modalBody.textContent =
-          "No events match the current filters or session. Try “All” for session, Activity, and Where.";
-      }
+      setModalPickHint(
+        "No events match the current filters or session. Try “All” for session, Activity, and Where.",
+      );
       return;
     }
     if (indices.length === 1) {
