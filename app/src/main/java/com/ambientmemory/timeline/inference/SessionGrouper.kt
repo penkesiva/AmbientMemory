@@ -94,33 +94,59 @@ class SessionGrouper(
                 .asReversed()
                 .firstOrNull { it.activity != "unknown" }
                 ?.activity
-                ?: list.lastOrNull()?.activity
                 ?: "unknown"
-        val label =
-            when (dominant) {
-                "working" -> "Working session"
-                "eating" -> "Meal"
-                "meeting" -> "Meeting"
-                "walking" -> "Walk"
-                "commuting" -> "Commute"
-                "shopping" -> "Shopping"
-                "resting" -> "Rest"
-                "relaxing" -> "Relaxing"
-                "sitting" -> "Sitting"
-                "exercising" -> "Exercise"
-                "household" -> "Home tasks"
-                "socializing" -> "Social"
-                else -> "Moment"
+        if (dominant == "unknown") {
+            val ref = list.last()
+            narrativePlaceTitle(ref.whereLabel)?.let { return it }
+            val snippet = ref.whatSummary.trim().take(40)
+            if (snippet.isNotBlank()) {
+                return if (ref.whatSummary.length > 40) "$snippet…" else snippet
             }
-        return label
+            return "Moment"
+        }
+        return when (dominant) {
+            "working" -> "Working session"
+            "eating" -> "Meal"
+            "meeting" -> "Meeting"
+            "walking" -> "Walk"
+            "commuting" -> "Commute"
+            "shopping" -> "Shopping"
+            "resting" -> "Rest"
+            "relaxing" -> "Relaxing"
+            "sitting" -> "Sitting"
+            "exercising" -> "Exercise"
+            "household" -> "Home tasks"
+            "socializing" -> "Social"
+            else -> "Moment"
+        }
+    }
+
+    private fun narrativePlaceTitle(whereLabel: String): String? {
+        val w = whereLabel.trim().lowercase()
+        if (w.isBlank() || w == "unknown") return null
+        return when (w) {
+            "home" -> "At home"
+            "office" -> "Workspace"
+            "bathroom" -> "Bathroom"
+            "hallway" -> "Hallway"
+            "outdoors" -> "Outside"
+            "vehicle" -> "On the go"
+            "restaurant" -> "Dining out"
+            else -> whereLabel.replaceFirstChar { it.uppercase() }
+        }
     }
 
     private fun buildSummary(list: List<InferredEventEntity>): String {
+        val newest = list.last()
+        val whatNewest = newest.whatSummary.take(120).trim()
+        if (whatNewest.isNotBlank()) return whatNewest
+        val howNewest = newest.howSummary.trim()
+        if (howNewest.isNotBlank()) return howNewest
         val first = list.first()
-        val what = first.whatSummary.take(120).trim()
-        if (what.isNotBlank()) return what
-        val how = first.howSummary.trim()
-        if (how.isNotBlank()) return how
-        return first.activity
+        val whatFirst = first.whatSummary.take(120).trim()
+        if (whatFirst.isNotBlank()) return whatFirst
+        val howFirst = first.howSummary.trim()
+        if (howFirst.isNotBlank()) return howFirst
+        return newest.activity
     }
 }

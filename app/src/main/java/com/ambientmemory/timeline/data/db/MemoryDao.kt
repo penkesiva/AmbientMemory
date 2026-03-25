@@ -154,4 +154,52 @@ interface MemoryDao {
         """,
     )
     suspend fun getAllQueuedRawCaptures(): List<RawCaptureEventEntity>
+
+    @Query(
+        """
+        SELECT * FROM inferred_events
+        ORDER BY start_time_millis DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getRecentInferred(limit: Int): List<InferredEventEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertInsight(entity: UserInsightEntity)
+
+    @Insert
+    suspend fun insertInsight(entity: UserInsightEntity): Long
+
+    @Query("SELECT * FROM user_insights WHERE insight_key = :key LIMIT 1")
+    suspend fun getInsightByKey(key: String): UserInsightEntity?
+
+    @Query(
+        """
+        UPDATE user_insights SET evidence_count = :evidenceCount, confidence = :confidence,
+        reason_json = :reasonJson, updated_at_millis = :updatedAt WHERE id = :id
+        """,
+    )
+    suspend fun updateInsightEvidence(
+        id: Long,
+        evidenceCount: Int,
+        confidence: Float,
+        reasonJson: String,
+        updatedAt: Long,
+    )
+
+    @Query("SELECT * FROM user_insights WHERE status = 'confirmed' ORDER BY updated_at_millis DESC")
+    suspend fun getConfirmedInsights(): List<UserInsightEntity>
+
+    @Query("SELECT * FROM user_insights ORDER BY updated_at_millis DESC")
+    fun observeInsights(): Flow<List<UserInsightEntity>>
+
+    @Query("UPDATE user_insights SET status = :status, updated_at_millis = :updatedAt WHERE id = :id")
+    suspend fun updateInsightStatus(
+        id: Long,
+        status: String,
+        updatedAt: Long,
+    )
+
+    @Query("DELETE FROM user_insights")
+    suspend fun deleteAllInsights()
 }

@@ -56,7 +56,10 @@ data class InferredEventEntity(
     val howSummary: String,
     @ColumnInfo(name = "why_summary")
     val whySummary: String?,
+    /** Behavior / activity classifier confidence */
     val confidence: Float,
+    @ColumnInfo(name = "scene_confidence")
+    val sceneConfidence: Float,
     /** rules, llm, hybrid */
     @ColumnInfo(name = "inference_source")
     val inferenceSource: String,

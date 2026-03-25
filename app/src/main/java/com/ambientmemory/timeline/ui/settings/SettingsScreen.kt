@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 fun SettingsRoute(
     app: AmbientMemoryApp,
     onBack: () -> Unit,
+    onInsights: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -70,6 +71,7 @@ fun SettingsRoute(
                 maxEventsPerSessionDisplay = AppPreferenceDefaults.MAX_EVENTS_PER_SESSION,
                 localOnlyStorage = AppPreferenceDefaults.LOCAL_ONLY,
                 blurSensitiveInUi = AppPreferenceDefaults.BLUR_SENSITIVE,
+                insightPriorsEnabled = AppPreferenceDefaults.INSIGHT_PRIORS,
             ),
     )
 
@@ -111,11 +113,11 @@ fun SettingsRoute(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
                     .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Capture", style = MaterialTheme.typography.titleMedium)
+            Text("Capture", style = MaterialTheme.typography.titleSmall)
             SettingsSwitchRow(
                 title = "Enable memory capture",
                 checked = settings.captureEnabled,
@@ -154,7 +156,7 @@ fun SettingsRoute(
                 singleLine = true,
             )
 
-            Text("Inference", style = MaterialTheme.typography.titleMedium)
+            Text("Inference", style = MaterialTheme.typography.titleSmall)
             SettingsSwitchRow(
                 title = "Enable rule engine",
                 checked = settings.ruleEngineEnabled,
@@ -191,7 +193,7 @@ fun SettingsRoute(
                 singleLine = true,
             )
 
-            Text("Sessions & dedupe", style = MaterialTheme.typography.titleMedium)
+            Text("Sessions & dedupe", style = MaterialTheme.typography.titleSmall)
             OutlinedTextField(
                 value = gapText,
                 onValueChange = { gapText = it },
@@ -221,7 +223,7 @@ fun SettingsRoute(
                 singleLine = true,
             )
 
-            Text("Privacy", style = MaterialTheme.typography.titleMedium)
+            Text("Privacy", style = MaterialTheme.typography.titleSmall)
             SettingsSwitchRow(
                 title = "Local-only storage mode",
                 checked = settings.localOnlyStorage,
@@ -231,6 +233,17 @@ fun SettingsRoute(
                 title = "Blur sensitive cues in UI",
                 checked = settings.blurSensitiveInUi,
                 onChecked = { v -> scope.launch { dataStore.edit { it[AppPreferenceKeys.blurSensitiveInUi] = v } } },
+            )
+
+            Text("Personalization", style = MaterialTheme.typography.titleSmall)
+            SettingsSwitchRow(
+                title = stringResource(R.string.insight_priors_title),
+                checked = settings.insightPriorsEnabled,
+                onChecked = { v ->
+                    scope.launch {
+                        dataStore.edit { it[AppPreferenceKeys.insightPriorsEnabled] = v }
+                    }
+                },
             )
 
             Button(
@@ -249,6 +262,13 @@ fun SettingsRoute(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Apply numeric settings")
+            }
+
+            Button(
+                onClick = onInsights,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.insights_beta))
             }
 
             Button(

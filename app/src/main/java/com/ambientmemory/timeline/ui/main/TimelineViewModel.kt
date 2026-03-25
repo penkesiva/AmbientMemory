@@ -52,6 +52,7 @@ class TimelineViewModel(
                     maxEventsPerSessionDisplay = AppPreferenceDefaults.MAX_EVENTS_PER_SESSION,
                     localOnlyStorage = AppPreferenceDefaults.LOCAL_ONLY,
                     blurSensitiveInUi = AppPreferenceDefaults.BLUR_SENSITIVE,
+                    insightPriorsEnabled = AppPreferenceDefaults.INSIGHT_PRIORS,
                 ),
         )
 

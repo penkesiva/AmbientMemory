@@ -12,8 +12,9 @@ import androidx.room.RoomDatabase
         SceneUnderstandingResultEntity::class,
         InferredEventEntity::class,
         TimelineSessionEntity::class,
+        UserInsightEntity::class,
     ],
-    version = 1,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

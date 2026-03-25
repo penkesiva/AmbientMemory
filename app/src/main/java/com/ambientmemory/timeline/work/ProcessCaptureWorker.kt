@@ -9,6 +9,7 @@ import com.ambientmemory.timeline.data.db.InferredEventEntity
 import com.ambientmemory.timeline.data.db.SceneUnderstandingResultEntity
 import com.ambientmemory.timeline.diagnostics.CaptureEventLog
 import com.ambientmemory.timeline.inference.InferenceOutput
+import com.ambientmemory.timeline.inference.InferencePriors
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -149,6 +150,25 @@ class ProcessCaptureWorker(
 
         inference = applyIndoorSafetyOverride(inference, sceneRaw, raw.activityState)
 
+        val sceneConfidence = InferencePriors.computeSceneConfidence(sceneRaw)
+        if (settings.insightPriorsEnabled) {
+            val confirmedInsights = g.repository.getConfirmedInsights()
+            val beforePriors = inference
+            inference =
+                InferencePriors.applyConfirmedInsights(
+                    inference = inference,
+                    scene = sceneRaw,
+                    eventTimeMillis = raw.timestampMillis,
+                    confirmed = confirmedInsights,
+                )
+            if (beforePriors.activity != inference.activity ||
+                kotlin.math.abs(beforePriors.confidence - inference.confidence) > 1e-4f ||
+                beforePriors.howSummary != inference.howSummary
+            ) {
+                CaptureEventLog.add("Insight prior nudge (raw=$rawId)")
+            }
+        }
+
         val now = raw.timestampMillis
         val inferredRow =
             InferredEventEntity(
@@ -163,19 +183,23 @@ class ProcessCaptureWorker(
                 howSummary = inference.howSummary,
                 whySummary = inference.whySummary,
                 confidence = inference.confidence,
+                sceneConfidence = sceneConfidence,
                 inferenceSource = source,
             )
 
         g.repository.insertInferred(inferredRow)
 
         g.repository.updateRawCapture(raw.copy(processingStatus = "done"))
-        CaptureEventLog.add("Worker done: ${inference.activity} (${(inference.confidence * 100).toInt()}%)")
+        CaptureEventLog.add(
+            "Worker done: ${inference.activity} activity ${(inference.confidence * 100).toInt()}% · scene ${(sceneConfidence * 100).toInt()}%",
+        )
 
         val cap = g.repository.getCaptureSession(raw.captureSessionId)
         if (cap != null) {
             val gapMs = settings.sessionGapMinutes * 60_000L
             g.sessionGrouper.regroupCaptureSession(cap.id, cap, gapMs)
         }
+        InsightAggregation.enqueue(applicationContext)
 
         return Result.success()
     }

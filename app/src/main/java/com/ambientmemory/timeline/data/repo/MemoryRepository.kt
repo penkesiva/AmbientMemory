@@ -10,6 +10,7 @@ import com.ambientmemory.timeline.data.db.InferredEventEntity
 import com.ambientmemory.timeline.data.db.RawCaptureEventEntity
 import com.ambientmemory.timeline.data.db.SceneUnderstandingResultEntity
 import com.ambientmemory.timeline.data.db.TimelineSessionEntity
+import com.ambientmemory.timeline.data.db.UserInsightEntity
 import com.ambientmemory.timeline.data.prefs.AppPreferenceDefaults
 import com.ambientmemory.timeline.data.prefs.AppPreferenceKeys
 import com.ambientmemory.timeline.data.prefs.appDataStore
@@ -31,6 +32,7 @@ class MemoryRepository(
     val timelineSessions: Flow<List<TimelineSessionEntity>> = dao.observeTimelineSessionsLatestFirst()
 
     val activeCaptureSession: Flow<CaptureSessionEntity?> = dao.observeActiveCaptureSession()
+    val insights: Flow<List<UserInsightEntity>> = dao.observeInsights()
 
     fun observeInferredForTimeline(timelineId: Long): Flow<List<InferredEventEntity>> =
         dao.observeInferredForTimeline(timelineId)
@@ -110,11 +112,44 @@ class MemoryRepository(
         dao.linkInferredToTimeline(inferredId, timelineId)
 
     suspend fun getAllQueuedRawCaptures(): List<RawCaptureEventEntity> = dao.getAllQueuedRawCaptures()
+    suspend fun getRecentInferred(limit: Int): List<InferredEventEntity> = dao.getRecentInferred(limit)
+    suspend fun upsertInsight(entity: UserInsightEntity) = dao.upsertInsight(entity)
+    suspend fun getConfirmedInsights(): List<UserInsightEntity> = dao.getConfirmedInsights()
+
+    suspend fun mergeInsightCandidate(candidate: UserInsightEntity) {
+        val existing = dao.getInsightByKey(candidate.insightKey)
+        val now = System.currentTimeMillis()
+        when (existing?.status) {
+            "dismissed" -> return
+            "confirmed" ->
+                dao.updateInsightEvidence(
+                    id = existing.id,
+                    evidenceCount = candidate.evidenceCount,
+                    confidence = candidate.confidence,
+                    reasonJson = candidate.reasonJson,
+                    updatedAt = now,
+                )
+            null -> dao.insertInsight(candidate)
+            else ->
+                dao.upsertInsight(
+                    candidate.copy(
+                        id = existing.id,
+                        createdAtMillis = existing.createdAtMillis,
+                    ),
+                )
+        }
+    }
+
+    suspend fun updateInsightStatus(
+        id: Long,
+        status: String,
+    ) = dao.updateInsightStatus(id, status, System.currentTimeMillis())
 
     suspend fun deleteAllUserData() {
         imageStorage.deleteAll()
         dao.deleteAllScenes()
         dao.deleteAllInferred()
+        dao.deleteAllInsights()
         dao.deleteAllTimelineSessions()
         dao.deleteAllRawCaptures()
         dao.deleteAllCaptureSessions()
@@ -158,6 +193,8 @@ class MemoryRepository(
                             ?: AppPreferenceDefaults.MAX_EVENTS_PER_SESSION,
                     localOnlyStorage = p[AppPreferenceKeys.localOnlyStorage] ?: AppPreferenceDefaults.LOCAL_ONLY,
                     blurSensitiveInUi = p[AppPreferenceKeys.blurSensitiveInUi] ?: AppPreferenceDefaults.BLUR_SENSITIVE,
+                    insightPriorsEnabled =
+                        p[AppPreferenceKeys.insightPriorsEnabled] ?: AppPreferenceDefaults.INSIGHT_PRIORS,
                 )
             }
 
@@ -196,4 +233,5 @@ data class AmbientSettings(
     val maxEventsPerSessionDisplay: Int,
     val localOnlyStorage: Boolean,
     val blurSensitiveInUi: Boolean,
+    val insightPriorsEnabled: Boolean,
 )

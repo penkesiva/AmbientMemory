@@ -33,6 +33,8 @@ object AppPreferenceKeys {
 
     val localOnlyStorage = booleanPreferencesKey("local_only_storage")
     val blurSensitiveInUi = booleanPreferencesKey("blur_sensitive_in_ui")
+    /** Use confirmed Insights (beta) as weak priors when classifying activity */
+    val insightPriorsEnabled = booleanPreferencesKey("insight_priors_enabled")
 
     val lastActivityState = stringPreferencesKey("last_activity_state")
     val lastActivityUpdatedMillis = longPreferencesKey("last_activity_updated_millis")
@@ -55,5 +57,6 @@ object AppPreferenceDefaults {
     const val MAX_EVENTS_PER_SESSION = 50
     const val LOCAL_ONLY = true
     const val BLUR_SENSITIVE = true
+    const val INSIGHT_PRIORS = true
     const val UNKNOWN_ACTIVITY = "UNKNOWN"
 }

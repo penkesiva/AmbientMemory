@@ -23,10 +23,12 @@ class RuleEngine {
             tokens.intersects("vehicle", "car", "bus", "train")
         val roadLike =
             tokens.intersects("road", "traffic", "highway")
+        val bathroomContext = isBathroomContext(place, tokens, scene.rawSceneText)
         val indoorLike =
             tokens.intersects("room", "door", "wall", "socket", "plug", "couch", "sofa", "bed") ||
                 place == "home" ||
-                place == "office"
+                place == "office" ||
+                place == "bathroom"
         val likelyCommuting =
             vehicleVisual ||
                 place == "vehicle" ||
@@ -55,7 +57,8 @@ class RuleEngine {
             )
         }
 
-        if (tokens.intersects("food", "meal", "plate", "dish") &&
+        if (!bathroomContext &&
+            tokens.intersects("food", "meal", "plate", "dish") &&
             tokens.intersects("table", "chair")
         ) {
             return InferenceOutput(
@@ -142,11 +145,24 @@ class RuleEngine {
                 place == "office" ||
                     tokens.intersects("workspace", "workstation", "laptop", "monitor", "keyboard", "mouse", "desk", "computer", "notebook")
             val socialCues = people >= 2 || tokens.intersects("people", "person", "group", "conversation")
-            val mealCues = tokens.intersects("food", "meal", "plate", "dish", "cup", "mug")
+            val mealCuesStrong = tokens.intersects("food", "meal", "plate", "dish")
+            val mealCuesWeakCup = tokens.intersects("cup", "mug") && !bathroomContext
+            val mealCues = mealCuesStrong || mealCuesWeakCup
             val exerciseCues = tokens.intersects("yoga", "mat", "dumbbell", "workout", "exercise", "stretch")
             val householdCues = tokens.intersects("broom", "vacuum", "laundry", "sink", "kitchen", "cleaning")
             val relaxCues = tokens.intersects("sofa", "couch", "bed", "pillow", "blanket", "tv", "television")
             val indoorCues = place == "home" || place == "hallway" || tokens.intersects("room", "door", "wall", "mat", "rug")
+
+            if (bathroomContext && !mealCuesStrong) {
+                return InferenceOutput(
+                    activity = "household",
+                    confidence = 0.55f,
+                    whereLabel = if (place == "unknown") "bathroom" else place,
+                    whatSummary = scene.rawSceneText.take(120),
+                    howSummary = "bathroom or hygiene context",
+                    whySummary = "routine",
+                )
+            }
 
             if (workplaceCues && !mealCues && !exerciseCues) {
                 return InferenceOutput(
@@ -231,6 +247,40 @@ class RuleEngine {
     }
 
     private fun Set<String>.intersects(vararg terms: String): Boolean = terms.any { contains(it) }
+
+    private fun isBathroomContext(
+        place: String,
+        tokens: Set<String>,
+        rawSceneText: String,
+    ): Boolean {
+        if (place == "bathroom") return true
+        if (tokens.intersects(
+                "bathroom",
+                "toilet",
+                "vanity",
+                "shower",
+                "bathtub",
+                "sink",
+                "toothbrush",
+                "toiletries",
+                "faucet",
+            )
+        ) {
+            return true
+        }
+        val t = rawSceneText.lowercase()
+        return listOf(
+            "bathroom",
+            "toilet",
+            "vanity",
+            "shower",
+            "bathtub",
+            "restroom",
+            "washroom",
+            "toothbrush",
+            "toiletries",
+        ).any { t.contains(it) }
+    }
 
     private fun normalizeToken(token: String): String {
         val t = token.lowercase().trim()

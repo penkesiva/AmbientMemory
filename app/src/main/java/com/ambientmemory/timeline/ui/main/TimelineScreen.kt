@@ -13,10 +13,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -48,6 +50,7 @@ import java.util.Locale
 fun TimelineRoute(
     viewModel: TimelineViewModel,
     onSettings: () -> Unit,
+    onInsights: () -> Unit,
     onStartSession: () -> Unit,
     onStopSession: () -> Unit,
     canRun: Boolean,
@@ -68,6 +71,18 @@ fun TimelineRoute(
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
                     }
                 },
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onInsights,
+                icon = {
+                    Icon(
+                        Icons.Outlined.Lightbulb,
+                        contentDescription = stringResource(R.string.insights_beta),
+                    )
+                },
+                text = { Text(stringResource(R.string.insights_beta)) },
             )
         },
     ) { padding ->
@@ -215,7 +230,10 @@ private fun CollapsibleSessionCard(
             )
             if (expanded) {
                 Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    events.take(maxEvents).forEach { ev ->
+                    events
+                        .asReversed()
+                        .take(maxEvents)
+                        .forEach { ev ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column(Modifier.weight(1f)) {
                                 val whenText =
@@ -255,18 +273,36 @@ private fun CollapsibleSessionCard(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
-                            val pct = (ev.confidence * 100).toInt().coerceIn(0, 100)
-                            Text(
-                                stringResource(R.string.confidence_label, pct),
-                                style = MaterialTheme.typography.labelSmall,
-                            )
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    stringResource(
+                                        R.string.scene_confidence_short,
+                                        (ev.sceneConfidence * 100).toInt().coerceIn(0, 100),
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Text(
+                                    stringResource(
+                                        R.string.activity_confidence_short,
+                                        (ev.confidence * 100).toInt().coerceIn(0, 100),
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
                         }
+                        LinearProgressIndicator(
+                            progress = { ev.sceneConfidence },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                        )
                         LinearProgressIndicator(
                             progress = { ev.confidence },
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 4.dp),
+                                    .padding(top = 2.dp),
                         )
                     }
                 }

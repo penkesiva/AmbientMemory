@@ -23,6 +23,8 @@ data class SceneUnderstandingResult(
     val rawSceneText: String,
     val privacyFlags: Map<String, Boolean>,
     val structuredTags: Map<String, String>,
+    /** perceptron | mlkit */
+    val sceneSource: String,
 )
 
 class SceneUnderstandingAdapter(
@@ -117,6 +119,7 @@ class SceneUnderstandingAdapter(
             rawSceneText = caption.take(280),
             privacyFlags = privacy,
             structuredTags = tags,
+            sceneSource = "perceptron",
         )
     }
 
@@ -170,6 +173,7 @@ class SceneUnderstandingAdapter(
             rawSceneText = rawSceneText,
             privacyFlags = privacy,
             structuredTags = tags,
+            sceneSource = "mlkit",
         )
     }
 
@@ -183,6 +187,17 @@ class SceneUnderstandingAdapter(
             tokenSet.intersects("vehicle", "car", "bus", "train") -> "vehicle"
             tokenSet.intersects("restaurant", "food", "meal", "dish") -> "restaurant"
             tokenSet.intersects("office", "desk", "computer", "workspace", "workstation", "laptop", "monitor", "keyboard", "mouse", "screen") -> "office"
+            tokenSet.intersects(
+                "bathroom",
+                "toilet",
+                "vanity",
+                "shower",
+                "bathtub",
+                "sink",
+                "toothbrush",
+                "toiletries",
+                "faucet",
+            ) -> "bathroom"
             tokenSet.intersects("sofa", "couch", "bed", "living", "room", "door", "wall", "socket", "plug") -> "home"
             tokenSet.intersects("tree", "grass", "road", "sky") -> "outdoors"
             tokenSet.intersects("hallway", "corridor", "stairs") -> "hallway"
@@ -207,6 +222,7 @@ class SceneUnderstandingAdapter(
         o.put("objects", JSONArray(scene.objects.take(20)))
         o.put("people_count", scene.peopleCount)
         o.put("raw_scene_text", scene.rawSceneText)
+        o.put("scene_source", scene.sceneSource)
         val pf = JSONObject()
         scene.privacyFlags.forEach { (k, v) -> pf.put(k, v) }
         o.put("privacy_flags", pf)

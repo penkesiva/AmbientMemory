@@ -23,6 +23,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.activity.ComponentActivity
 import com.ambientmemory.timeline.service.MemoryCaptureService
+import com.ambientmemory.timeline.ui.insights.InsightsRoute
 import com.ambientmemory.timeline.ui.main.TimelineRoute
 import com.ambientmemory.timeline.ui.main.TimelineViewModel
 import com.ambientmemory.timeline.ui.settings.SettingsRoute
@@ -83,6 +84,7 @@ class MainActivity : ComponentActivity() {
                         TimelineRoute(
                             viewModel = vm,
                             onSettings = { navController.navigate("settings") },
+                            onInsights = { navController.navigate("insights") },
                             onStartSession = {
                                 val hasAllPermissions =
                                     perms.all { p ->
@@ -116,6 +118,13 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("settings") {
                         SettingsRoute(
+                            app = app,
+                            onBack = { navController.popBackStack() },
+                            onInsights = { navController.navigate("insights") },
+                        )
+                    }
+                    composable("insights") {
+                        InsightsRoute(
                             app = app,
                             onBack = { navController.popBackStack() },
                         )
