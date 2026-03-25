@@ -2,6 +2,7 @@ package com.ambientmemory.timeline.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothProfile
 import android.content.Context
@@ -21,10 +22,19 @@ object CarBluetoothDetector {
         if (hasBluetoothConnectPermission(context) == false) return null
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return null
         val bonded = adapter.bondedDevices ?: return null
+        val btManager =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: return null
 
-        val candidates = bonded.mapNotNull { d -> d to isDeviceConnected(adapter, d) }.filter { it.second }
-        // Deterministic choice: sort by address
-        return candidates.map { it.first.address }.sorted().firstOrNull()
+        val connected =
+            getConnectedDevicesCompat(btManager, BluetoothProfile.A2DP) +
+                getConnectedDevicesCompat(btManager, BluetoothProfile.HEADSET)
+
+        val bondedAddrs = bonded.map { it.address.lowercase(Locale.getDefault()) }.toSet()
+        return connected
+            .map { it.address.lowercase(Locale.getDefault()) }
+            .filter { it in bondedAddrs }
+            .sorted()
+            .firstOrNull()
     }
 
     /**
@@ -35,15 +45,37 @@ object CarBluetoothDetector {
         if (hasBluetoothConnectPermission(context) == false) return false
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return false
         val bonded = adapter.bondedDevices ?: return false
-        val device = bonded.firstOrNull { it.address.equals(deviceAddress, ignoreCase = true) } ?: return false
-        return isDeviceConnected(adapter, device)
+        val bondedDevice =
+            bonded.firstOrNull { it.address.equals(deviceAddress, ignoreCase = true) } ?: return false
+
+        val btManager =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: return false
+
+        val connectedAddrs =
+            (getConnectedDevicesCompat(btManager, BluetoothProfile.A2DP) +
+                getConnectedDevicesCompat(btManager, BluetoothProfile.HEADSET))
+                .map { it.address }
+                .toSet()
+
+        return connectedAddrs.any { it.equals(bondedDevice.address, ignoreCase = true) }
     }
 
-    private fun isDeviceConnected(adapter: BluetoothAdapter, device: BluetoothDevice): Boolean {
-        val a2dp = adapter.getProfileConnectionState(BluetoothProfile.A2DP, device)
-        if (a2dp == BluetoothProfile.STATE_CONNECTED) return true
-        val headset = adapter.getProfileConnectionState(BluetoothProfile.HEADSET, device)
-        return headset == BluetoothProfile.STATE_CONNECTED
+    /**
+     * Compatibility wrapper: different Android framework stubs expose different signatures.
+     * We use reflection to ask for `BluetoothManager.getConnectedDevices(int profile)`.
+     */
+    private fun getConnectedDevicesCompat(
+        btManager: BluetoothManager,
+        profile: Int,
+    ): List<BluetoothDevice> {
+        return runCatching {
+            val method =
+                btManager.javaClass.methods.firstOrNull {
+                    it.name == "getConnectedDevices" && it.parameterTypes.size == 1
+                } ?: return emptyList()
+            val raw = method.invoke(btManager, profile)
+            (raw as? List<*>)?.mapNotNull { it as? BluetoothDevice } ?: emptyList()
+        }.getOrDefault(emptyList())
     }
 
 }
