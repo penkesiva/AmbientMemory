@@ -33,11 +33,16 @@ function fmtTime(ms) {
   }
 }
 
-function basename(pathLike) {
-  if (!pathLike) return "";
-  const s = String(pathLike);
-  const parts = s.split("/");
-  return parts[parts.length - 1] || "";
+/** Android stores absolute file paths; viewer pulls files into data/captures/<filename>. */
+function captureFilenameFromRow(e) {
+  const uri = e?.image_uri ?? e?.imageUri ?? e?.IMAGE_URI;
+  if (uri == null || uri === "") return "";
+  return String(uri)
+    .trim()
+    .replace(/^file:\/\//i, "")
+    .split(/[/\\]/)
+    .filter(Boolean)
+    .pop() || "";
 }
 
 function colorPalette() {
@@ -98,7 +103,11 @@ function queryEvents(db, limit = 2000) {
   const { columns, values } = res[0];
   return values.map((row) => {
     const obj = {};
-    columns.forEach((c, i) => (obj[c] = row[i]));
+    columns.forEach((c, i) => {
+      obj[c] = row[i];
+      const lower = String(c).toLowerCase();
+      if (lower !== c) obj[lower] = row[i];
+    });
     return obj;
   });
 }
@@ -182,7 +191,7 @@ function makePointsScene({ positions, colors }) {
   geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.18,
+    size: 0.24,
     vertexColors: true,
     transparent: true,
     opacity: 0.95,
@@ -196,7 +205,7 @@ function makePointsScene({ positions, colors }) {
   // Soft glow layer
   const glowGeom = geom.clone();
   const glowMat = new THREE.PointsMaterial({
-    size: 0.32,
+    size: 0.42,
     vertexColors: true,
     transparent: true,
     opacity: 0.25,
@@ -204,6 +213,8 @@ function makePointsScene({ positions, colors }) {
     depthWrite: false,
   });
   const glow = new THREE.Points(glowGeom, glowMat);
+  // Only the main Points layer should receive raycasts (glow duplicates vertices).
+  glow.raycast = () => {};
   group.add(glow);
 
   return { group, points, geom, glowGeom };
@@ -265,23 +276,98 @@ function setEventDetails(events, e) {
     `How: ${how}\n` +
     `Why: ${why || "—"}`;
 
-  const file = basename(e.image_uri);
-  const img = `./data/captures/${file}`;
-  els.detailImg.src = img;
+  const file = captureFilenameFromRow(e);
+  if (file) {
+    els.detailImg.src = `./data/captures/${encodeURIComponent(file)}`;
+  } else {
+    els.detailImg.src = "";
+    els.detailImg.alt = "No image path in database";
+  }
   els.detailImg.onerror = () => {
     els.detailImg.src = "";
+    els.detailImg.alt = "Image missing under data/captures/";
   };
 
   const scenePct = Math.round((Number(e.scene_confidence ?? 0.5) * 100) || 0);
   const actPct = Math.round((Number(e.confidence ?? 0.5) * 100) || 0);
   els.sceneConf.textContent = `Scene ${scenePct}%`;
   els.activityConf.textContent = `Activity ${actPct}%`;
+
+  const modalBody = document.getElementById("modalPickBody");
+  if (modalBody) {
+    const what = (e.what_summary ?? "").slice(0, 160);
+    modalBody.textContent =
+      `#${e.id} · ${fmtTime(e.start_time_millis)}\n` +
+      `Activity: ${e.activity ?? "?"} · Where: ${e.where_label ?? "?"}\n` +
+      `Scene ${scenePct}% · Activity ${actPct}%\n` +
+      (what ? `What: ${what}${(e.what_summary ?? "").length > 160 ? "…" : ""}` : "");
+  }
 }
 
 let state = null;
 
+const viewerModal = document.getElementById("viewerModal");
+const modalCanvasHost = document.getElementById("modalCanvasHost");
+const mainCanvasHost = document.getElementById("canvas");
+const open3dModalBtn = document.getElementById("open3dModalBtn");
+
+function fitRendererToHost() {
+  if (!state?.renderer?.domElement) return;
+  const parent = state.renderer.domElement.parentElement;
+  if (!parent) return;
+  const w = Math.max(1, Math.floor(parent.clientWidth));
+  const h = Math.max(1, Math.floor(parent.clientHeight));
+  state.camera.aspect = w / h;
+  state.camera.updateProjectionMatrix();
+  state.renderer.setSize(w, h);
+}
+
+function close3dModal() {
+  if (!viewerModal || !mainCanvasHost || !state?.renderer) return;
+  if (viewerModal.hidden) return;
+  mainCanvasHost.appendChild(state.renderer.domElement);
+  viewerModal.hidden = true;
+  viewerModal.setAttribute("aria-hidden", "true");
+  fitRendererToHost();
+}
+
+function open3dModal() {
+  if (!viewerModal || !modalCanvasHost || !state?.renderer) return;
+  modalCanvasHost.appendChild(state.renderer.domElement);
+  viewerModal.hidden = false;
+  viewerModal.setAttribute("aria-hidden", "false");
+  if (state.highlightIndex >= 0 && state.events[state.highlightIndex]) {
+    setEventDetails(state.events, state.events[state.highlightIndex]);
+  }
+  requestAnimationFrame(() => {
+    fitRendererToHost();
+    requestAnimationFrame(fitRendererToHost);
+  });
+}
+
+let viewerChromeBound = false;
+function bindViewerChromeOnce() {
+  if (viewerChromeBound) return;
+  viewerChromeBound = true;
+  window.addEventListener("resize", () => fitRendererToHost());
+  open3dModalBtn?.addEventListener("click", () => open3dModal());
+  document.getElementById("close3dModal")?.addEventListener("click", () => close3dModal());
+  viewerModal?.querySelector("[data-close-modal]")?.addEventListener("click", () => close3dModal());
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (viewerModal && viewerModal.hidden === false) {
+      e.preventDefault();
+      close3dModal();
+    }
+  });
+}
+
+bindViewerChromeOnce();
+
 async function loadAndRender() {
   if (!els.reloadBtn) return;
+  close3dModal();
+  if (open3dModalBtn) open3dModalBtn.disabled = true;
   setStatus("Loading local DB…");
   const SQL = await loadSqlJs();
   const buf = await loadDbArrayBuffer();
@@ -291,6 +377,7 @@ async function loadAndRender() {
   const events = queryEvents(db, 2500);
   if (!events.length) {
     setStatus("No inferred events found. Pull the DB first.", "danger");
+    if (open3dModalBtn) open3dModalBtn.disabled = true;
     return;
   }
 
@@ -325,6 +412,13 @@ async function loadAndRender() {
 
   const scene = new THREE.Scene();
   scene.add(group);
+
+  const grid = new THREE.GridHelper(56, 28, 0x455a6e, 0x141820);
+  grid.position.set(0, -9, 0);
+  scene.add(grid);
+
+  const axes = new THREE.AxesHelper(2.8);
+  scene.add(axes);
 
   const camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 2000);
   camera.position.set(0, 2.5, 22);
@@ -369,8 +463,46 @@ async function loadAndRender() {
     filteredMask: new Array(events.length).fill(true),
     sessions,
     sessionById,
-    selectedSessionId: sessions.length ? sessions[0].id : null, // null == all sessions
+    // Default "All sessions": many rows have timeline_session_id NULL until regrouped; picking a
+    // session first would hide them all and leave detail stuck on "Loading…".
+    selectedSessionId: null,
+    pathLine: null,
   };
+
+  function rebuildTimelinePath() {
+    if (state.pathLine) {
+      group.remove(state.pathLine);
+      state.pathLine.geometry.dispose();
+      state.pathLine.material.dispose();
+      state.pathLine = null;
+    }
+    const indices = [];
+    for (let i = 0; i < events.length; i++) {
+      if (state.filteredMask[i]) indices.push(i);
+    }
+    indices.sort((a, b) => events[a].start_time_millis - events[b].start_time_millis);
+    if (indices.length < 2) return;
+
+    const pos = new Float32Array(indices.length * 3);
+    for (let j = 0; j < indices.length; j++) {
+      const i = indices[j];
+      pos[j * 3] = built.positions[i * 3];
+      pos[j * 3 + 1] = built.positions[i * 3 + 1];
+      pos[j * 3 + 2] = built.positions[i * 3 + 2];
+    }
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const lm = new THREE.LineBasicMaterial({
+      color: 0x5eead4,
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false,
+    });
+    const line = new THREE.Line(lg, lm);
+    line.raycast = () => {};
+    group.add(line);
+    state.pathLine = line;
+  }
 
   function currentSelectionMask() {
     const act = els.activityFilter.value;
@@ -437,6 +569,7 @@ async function loadAndRender() {
         }
       }
     }
+    rebuildTimelinePath();
   }
 
   function highlightByEventId(id) {
@@ -447,7 +580,8 @@ async function loadAndRender() {
     setEventDetails(events, events[idx]);
   }
 
-  function highlightBySlider() {
+  function highlightBySlider(opts = {}) {
+    const allowSessionFallback = opts.allowSessionFallback !== false;
     const ratio = Number(els.timeSlider.value) / Number(els.timeSlider.max);
     const mask = state.filteredMask;
     /** Indices of visible events, chronological */
@@ -456,7 +590,28 @@ async function loadAndRender() {
       if (mask[i]) indices.push(i);
     }
     indices.sort((a, b) => events[a].start_time_millis - events[b].start_time_millis);
-    if (indices.length === 0) return;
+    if (indices.length === 0) {
+      if (allowSessionFallback && state.selectedSessionId != null) {
+        state.selectedSessionId = null;
+        if (els.sessionSlider) els.sessionSlider.value = "0";
+        updateSessionUI();
+        applyFilterColors({ forceHighlight: false });
+        highlightBySlider({ allowSessionFallback: false });
+        return;
+      }
+      els.detailText.textContent =
+        "No events match the current filters or session.\n\n" +
+        'Try session chip “All”, or set Activity / Where to “All”.';
+      els.detailImg.src = "";
+      els.sceneConf.textContent = "Scene —";
+      els.activityConf.textContent = "Activity —";
+      const modalBody = document.getElementById("modalPickBody");
+      if (modalBody) {
+        modalBody.textContent =
+          "No events match the current filters or session. Try “All” for session, Activity, and Where.";
+      }
+      return;
+    }
     if (indices.length === 1) {
       highlightByEventId(events[indices[0]].id);
       return;
@@ -486,38 +641,23 @@ async function loadAndRender() {
   }
 
   // Point picking: only on a true click/tap (not after orbit drag)
-  const PICK_SLOP_PX = 8;
+  const PICK_SLOP_PX = 12;
   let pickPointer = null;
 
   function pickNearestEventAtClient(clientX, clientY) {
     const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) return -1;
     mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -(((clientY - rect.top) / rect.height) * 2 - 1);
     raycaster.setFromCamera(mouse, camera);
-    raycaster.params.Points.threshold = 0.14;
+    raycaster.params.Points.threshold = 0.45;
 
-    const positions = built.positions;
-    const intersect = raycaster.intersectObject(points)[0];
-    if (!intersect) return -1;
-    const p = intersect.point;
-
-    let best = -1;
-    let bestD = Infinity;
-    for (let i = 0; i < events.length; i++) {
-      if (!state.filteredMask[i]) continue;
-      const x = positions[i * 3 + 0];
-      const y = positions[i * 3 + 1];
-      const z = positions[i * 3 + 2];
-      const dx = p.x - x;
-      const dy = p.y - y;
-      const dz = p.z - z;
-      const d2 = dx * dx + dy * dy + dz * dz;
-      if (d2 < bestD) {
-        bestD = d2;
-        best = i;
-      }
+    const hits = raycaster.intersectObject(points, false);
+    for (let h = 0; h < hits.length; h++) {
+      const idx = hits[h].index;
+      if (idx != null && idx >= 0 && state.filteredMask[idx]) return idx;
     }
-    return best;
+    return -1;
   }
 
   renderer.domElement.addEventListener("pointerdown", (ev) => {
@@ -618,8 +758,8 @@ async function loadAndRender() {
     els.sessionSlider.min = "0";
     els.sessionSlider.max = String(max);
     els.sessionSlider.step = "1";
-    // default: newest session if available
-    els.sessionSlider.value = state.selectedSessionId == null ? "0" : "1";
+    // Start on "All sessions" so every inferred row is visible (see selectedSessionId default).
+    els.sessionSlider.value = "0";
   }
   buildSessionChips();
   updateSessionUI();
@@ -643,6 +783,7 @@ async function loadAndRender() {
   highlightBySlider();
 
   setStatus(`Loaded ${events.length} events. Click points to inspect.`);
+  if (open3dModalBtn) open3dModalBtn.disabled = false;
 
   const animate = () => {
     requestAnimationFrame(animate);
@@ -663,6 +804,7 @@ els.reloadBtn?.addEventListener("click", async () => {
   } catch (e) {
     console.error(e);
     setStatus(`Reload failed: ${e.message || e}`, "danger");
+    if (open3dModalBtn) open3dModalBtn.disabled = true;
   }
 });
 
@@ -672,5 +814,6 @@ try {
 } catch (e) {
   console.error(e);
   setStatus(`Init failed: ${e.message || e}`, "danger");
+  if (open3dModalBtn) open3dModalBtn.disabled = true;
 }
 

@@ -85,6 +85,14 @@ body {
   pointer-events: auto;
 }
 
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .btn {
   cursor: pointer;
   padding: 10px 14px;
@@ -101,6 +109,11 @@ body {
 .btn:hover {
   border-color: rgba(255, 255, 255, 0.16);
   background: #12151c;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .grid {
@@ -307,6 +320,132 @@ body {
 
 .status strong {
   color: var(--text);
+}
+
+/* Full-size 3D viewport (modal) */
+.viewer-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: min(24px, 4vw);
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.viewer-modal[hidden] {
+  display: none !important;
+}
+
+.viewer-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 5, 8, 0.72);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.viewer-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(96vw, 1320px);
+  height: min(88vh, 860px);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+
+.viewer-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+
+.viewer-modal__title {
+  font-weight: 650;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+
+.viewer-modal__sub {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+  max-width: 52ch;
+}
+
+.viewer-modal__pick {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid var(--card-border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.viewer-modal__pick strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.viewer-modal__pickBody {
+  margin: 0;
+  line-height: 1.45;
+  word-break: break-word;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.viewer-modal__legend {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--muted);
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.viewer-modal__legendTitle {
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.viewer-modal__legendItems {
+  max-width: 85ch;
+}
+
+.viewer-modal__canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #06070c;
+  border-radius: 0;
+}
+
+.viewer-modal__canvas canvas {
+  display: block;
+  /* size set by Three.js setSize from host clientWidth/Height */
 }
 
 @media (max-width: 1100px) {
