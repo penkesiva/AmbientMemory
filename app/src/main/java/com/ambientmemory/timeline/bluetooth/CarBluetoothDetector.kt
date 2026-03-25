@@ -18,7 +18,7 @@ object CarBluetoothDetector {
      * profiles (A2DP/Headset). Used for quick "set device from current connection".
      */
     fun getAnyConnectedDeviceAddress(context: Context): String? {
-        if (!hasBluetoothConnectPermission(context)) return null
+        if (hasBluetoothConnectPermission(context) == false) return null
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return null
         val bonded = adapter.bondedDevices ?: return null
 
@@ -32,7 +32,7 @@ object CarBluetoothDetector {
      */
     fun isDeviceConnected(context: Context, deviceAddress: String): Boolean {
         if (deviceAddress.isBlank()) return false
-        if (!hasBluetoothConnectPermission(context)) return false
+        if (hasBluetoothConnectPermission(context) == false) return false
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return false
         val bonded = adapter.bondedDevices ?: return false
         val device = bonded.firstOrNull { it.address.equals(deviceAddress, ignoreCase = true) } ?: return false
