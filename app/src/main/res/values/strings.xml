@@ -24,5 +24,13 @@
     <string name="cancel_action">Cancel</string>
     <string name="insights_beta">Insights (beta)</string>
     <string name="insight_priors_title">Use confirmed insights for activity</string>
+    <string name="correct_action">Correct</string>
+    <string name="correct_event_title">Correct event labels</string>
+    <string name="activity_label">Activity</string>
+    <string name="where_label_title">Where</string>
+    <string name="edit_action">Edit</string>
+    <string name="delete_action">Delete</string>
+    <string name="edit_insight_title">Edit insight</string>
+    <string name="save_action">Save</string>
     <string name="nav_back">Back</string>
 </resources>

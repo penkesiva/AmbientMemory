@@ -33,6 +33,7 @@ object InferencePriors {
         if (confirmed.isEmpty() || inference.activity != "unknown") return inference
 
         val keys = confirmed.map { it.insightKey }.toSet()
+        val placeFeedback = parseFeedbackPlacePriors(keys)
         val cal = Calendar.getInstance(Locale.getDefault())
         cal.timeInMillis = eventTimeMillis
         val hour = cal.get(Calendar.HOUR_OF_DAY)
@@ -90,6 +91,26 @@ object InferencePriors {
             )
         }
 
+        val placeToMatch =
+            when {
+                scene.placeCategory != "unknown" -> scene.placeCategory
+                inference.whereLabel != "unknown" -> inference.whereLabel
+                else -> ""
+            }
+        val feedbackActivity = placeFeedback[placeToMatch]
+        if (!feedbackActivity.isNullOrBlank()) {
+            return inference.copy(
+                activity = feedbackActivity,
+                confidence = max(inference.confidence, 0.6f),
+                whereLabel = if (placeToMatch.isBlank()) inference.whereLabel else placeToMatch,
+                howSummary =
+                    mergeHow(
+                        inference.howSummary,
+                        "matches your confirmed correction pattern",
+                    ),
+            )
+        }
+
         return inference
     }
 
@@ -102,4 +123,19 @@ object InferencePriors {
             .distinct()
             .joinToString(" · ")
             .take(200)
+
+    private fun parseFeedbackPlacePriors(keys: Set<String>): Map<String, String> {
+        val out = mutableMapOf<String, String>()
+        keys.forEach { k ->
+            if (!k.startsWith("feedback_place_")) return@forEach
+            val marker = "_activity_"
+            val idx = k.indexOf(marker)
+            if (idx <= "feedback_place_".length) return@forEach
+            val place = k.substring("feedback_place_".length, idx)
+            val activity = k.substring(idx + marker.length)
+            if (place.isBlank() || activity.isBlank()) return@forEach
+            out[place] = activity
+        }
+        return out
+    }
 }

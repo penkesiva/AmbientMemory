@@ -25,6 +25,10 @@ class MemoryRepository(
     val db: AppDatabase,
     private val imageStorage: ImageStorage = ImageStorage(context),
 ) {
+    companion object {
+        private const val DISMISSED_INSIGHT_COOLDOWN_MS = 7L * 24L * 60L * 60L * 1000L
+    }
+
     private val appContext = context.applicationContext
     private val dao = db.memoryDao()
     private val dataStore = appContext.appDataStore
@@ -120,7 +124,19 @@ class MemoryRepository(
         val existing = dao.getInsightByKey(candidate.insightKey)
         val now = System.currentTimeMillis()
         when (existing?.status) {
-            "dismissed" -> return
+            "dismissed" -> {
+                val recentlyDismissed = now - existing.updatedAtMillis < DISMISSED_INSIGHT_COOLDOWN_MS
+                if (recentlyDismissed) return
+                dao.upsertInsight(
+                    candidate.copy(
+                        id = existing.id,
+                        status = "candidate",
+                        source = "inferred",
+                        createdAtMillis = existing.createdAtMillis,
+                        updatedAtMillis = now,
+                    ),
+                )
+            }
             "confirmed" ->
                 dao.updateInsightEvidence(
                     id = existing.id,
@@ -144,6 +160,102 @@ class MemoryRepository(
         id: Long,
         status: String,
     ) = dao.updateInsightStatus(id, status, System.currentTimeMillis())
+
+    suspend fun updateInsightText(
+        id: Long,
+        text: String,
+    ) = dao.updateInsightText(id, text.trim(), "user_edited", "confirmed", System.currentTimeMillis())
+
+    suspend fun deleteInsight(id: Long) = dao.deleteInsightById(id)
+
+    suspend fun applyEventCorrection(
+        event: InferredEventEntity,
+        newActivity: String,
+        newWhere: String,
+    ) {
+        val correctedActivity = normalizeLabel(newActivity, fallback = event.activity)
+        val correctedWhere = normalizeLabel(newWhere, fallback = event.whereLabel)
+        val updated =
+            event.copy(
+                activity = correctedActivity,
+                whereLabel = correctedWhere,
+                confidence = maxOf(event.confidence, 0.92f),
+                howSummary = mergeHow(event.howSummary, "user corrected"),
+                inferenceSource = "user",
+            )
+        dao.updateInferred(updated)
+        if (correctedWhere != "unknown") {
+            upsertConfirmedFeedbackInsight(
+                where = correctedWhere,
+                activity = correctedActivity,
+            )
+        }
+    }
+
+    private suspend fun upsertConfirmedFeedbackInsight(
+        where: String,
+        activity: String,
+    ) {
+        val now = System.currentTimeMillis()
+        val key = "feedback_place_${where}_activity_${activity}"
+        val text = "When context is \"$where\", prefer activity \"$activity\"."
+        val reason =
+            org.json.JSONObject()
+                .put("where", where)
+                .put("activity", activity)
+                .put("source", "user_correction")
+                .toString()
+        val existing = dao.getInsightByKey(key)
+        if (existing == null) {
+            dao.insertInsight(
+                UserInsightEntity(
+                    insightKey = key,
+                    category = "preference",
+                    text = text,
+                    status = "confirmed",
+                    confidence = 0.95f,
+                    evidenceCount = 1,
+                    reasonJson = reason,
+                    source = "user_confirmed",
+                    createdAtMillis = now,
+                    updatedAtMillis = now,
+                ),
+            )
+            return
+        }
+        dao.updateInsightText(
+            id = existing.id,
+            text = text,
+            source = "user_confirmed",
+            status = "confirmed",
+            updatedAt = now,
+        )
+        dao.updateInsightEvidence(
+            id = existing.id,
+            evidenceCount = existing.evidenceCount + 1,
+            confidence = maxOf(existing.confidence, 0.95f),
+            reasonJson = reason,
+            updatedAt = now,
+        )
+    }
+
+    private fun normalizeLabel(
+        value: String,
+        fallback: String,
+    ): String {
+        val trimmed = value.trim().lowercase()
+        return if (trimmed.isBlank()) fallback.lowercase() else trimmed
+    }
+
+    private fun mergeHow(
+        old: String,
+        note: String,
+    ): String =
+        listOf(old.trim(), note)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString(" · ")
+            .take(200)
 
     suspend fun deleteAllUserData() {
         imageStorage.deleteAll()

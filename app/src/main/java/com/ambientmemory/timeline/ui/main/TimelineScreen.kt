@@ -19,14 +19,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -234,6 +238,9 @@ private fun CollapsibleSessionCard(
                         .asReversed()
                         .take(maxEvents)
                         .forEach { ev ->
+                        var showCorrectionDialog by remember(ev.id) { mutableStateOf(false) }
+                        var correctedActivity by remember(ev.id, ev.activity) { mutableStateOf(ev.activity) }
+                        var correctedWhere by remember(ev.id, ev.whereLabel) { mutableStateOf(ev.whereLabel) }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column(Modifier.weight(1f)) {
                                 val whenText =
@@ -272,6 +279,9 @@ private fun CollapsibleSessionCard(
                                     "How: ${ev.howSummary.ifBlank { "not inferred" }}",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
+                                TextButton(onClick = { showCorrectionDialog = true }) {
+                                    Text(stringResource(R.string.correct_action))
+                                }
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
@@ -304,6 +314,75 @@ private fun CollapsibleSessionCard(
                                     .fillMaxWidth()
                                     .padding(top = 2.dp),
                         )
+                        if (showCorrectionDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showCorrectionDialog = false },
+                                title = { Text(stringResource(R.string.correct_event_title)) },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            "Quick activity picks",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf("working", "relaxing", "household", "sitting").forEach { label ->
+                                                AssistChip(
+                                                    onClick = { correctedActivity = label },
+                                                    label = { Text(label.replaceFirstChar { it.uppercase() }) },
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            "Quick place picks",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf("home", "office", "bathroom", "outdoors").forEach { label ->
+                                                AssistChip(
+                                                    onClick = { correctedWhere = label },
+                                                    label = { Text(label.replaceFirstChar { it.uppercase() }) },
+                                                )
+                                            }
+                                        }
+                                        OutlinedTextField(
+                                            value = correctedActivity,
+                                            onValueChange = { correctedActivity = it },
+                                            label = { Text(stringResource(R.string.activity_label)) },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        OutlinedTextField(
+                                            value = correctedWhere,
+                                            onValueChange = { correctedWhere = it },
+                                            label = { Text(stringResource(R.string.where_label_title)) },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.applyEventCorrection(
+                                                event = ev,
+                                                activity = correctedActivity,
+                                                where = correctedWhere,
+                                            )
+                                            showCorrectionDialog = false
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.save_action))
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showCorrectionDialog = false }) {
+                                        Text(stringResource(R.string.cancel_action))
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }

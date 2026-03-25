@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ambientmemory.timeline.data.db.CaptureSessionEntity
+import com.ambientmemory.timeline.data.db.InferredEventEntity
 import com.ambientmemory.timeline.data.db.TimelineSessionEntity
 import com.ambientmemory.timeline.data.repo.AmbientSettings
 import com.ambientmemory.timeline.data.repo.MemoryRepository
 import com.ambientmemory.timeline.data.prefs.AppPreferenceDefaults
 import com.ambientmemory.timeline.diagnostics.CaptureEventLog
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -59,6 +61,20 @@ class TimelineViewModel(
     val captureEvents: StateFlow<List<String>> = CaptureEventLog.events
 
     fun eventsForTimeline(timelineId: Long) = repository.observeInferredForTimeline(timelineId)
+
+    fun applyEventCorrection(
+        event: InferredEventEntity,
+        activity: String,
+        where: String,
+    ) {
+        viewModelScope.launch {
+            repository.applyEventCorrection(
+                event = event,
+                newActivity = activity,
+                newWhere = where,
+            )
+        }
+    }
 
     companion object {
         fun factory(repository: MemoryRepository): ViewModelProvider.Factory =

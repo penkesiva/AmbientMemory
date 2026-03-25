@@ -200,6 +200,24 @@ interface MemoryDao {
         updatedAt: Long,
     )
 
+    @Query(
+        """
+        UPDATE user_insights
+        SET text = :text, source = :source, status = :status, updated_at_millis = :updatedAt
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateInsightText(
+        id: Long,
+        text: String,
+        source: String,
+        status: String,
+        updatedAt: Long,
+    )
+
+    @Query("DELETE FROM user_insights WHERE id = :id")
+    suspend fun deleteInsightById(id: Long)
+
     @Query("DELETE FROM user_insights")
     suspend fun deleteAllInsights()
 }
