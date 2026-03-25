@@ -18,7 +18,7 @@ class RuleEngineTest {
                 structuredTags = emptyMap(),
                 sceneSource = "mlkit",
             )
-        val out = engine.infer(scene, "WALKING")
+        val out = engine.infer(scene, "WALKING", carBtConnected = false, carBtConfigured = false)
         assertEquals("walking", out.activity)
     }
 
@@ -34,7 +34,7 @@ class RuleEngineTest {
                 structuredTags = emptyMap(),
                 sceneSource = "mlkit",
             )
-        val out = engine.infer(scene, "STILL")
+        val out = engine.infer(scene, "STILL", carBtConnected = false, carBtConfigured = false)
         assertEquals("working", out.activity)
     }
 
@@ -50,7 +50,7 @@ class RuleEngineTest {
                 structuredTags = emptyMap(),
                 sceneSource = "perceptron",
             )
-        val out = engine.infer(scene, "UNKNOWN")
+        val out = engine.infer(scene, "UNKNOWN", carBtConnected = false, carBtConfigured = false)
         assertEquals("household", out.activity)
     }
 }

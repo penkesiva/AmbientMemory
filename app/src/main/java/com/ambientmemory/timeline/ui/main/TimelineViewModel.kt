@@ -67,6 +67,8 @@ class TimelineViewModel(
                     localOnlyStorage = AppPreferenceDefaults.LOCAL_ONLY,
                     blurSensitiveInUi = AppPreferenceDefaults.BLUR_SENSITIVE,
                     insightPriorsEnabled = AppPreferenceDefaults.INSIGHT_PRIORS,
+                    useCarBluetoothForCommute = AppPreferenceDefaults.USE_CAR_BT_COMMUTE,
+                    carBluetoothDeviceAddress = AppPreferenceDefaults.CAR_BT_DEVICE_ADDRESS,
                 ),
         )
 

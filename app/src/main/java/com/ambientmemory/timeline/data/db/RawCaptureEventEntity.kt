@@ -34,6 +34,20 @@ data class RawCaptureEventEntity(
     /** Last known activity at capture time, e.g. STILL, WALKING */
     @ColumnInfo(name = "activity_state")
     val activityState: String,
+    /**
+     * Whether the phone is connected to the user-selected car headunit over Bluetooth
+     * (used to disambiguate commute vs indoor driving-like visuals).
+     */
+    @ColumnInfo(name = "car_bt_connected")
+    val carBtConnected: Boolean,
+
+    /**
+     * True when Bluetooth commute gating is enabled and we have a configured device
+     * (so the inference layer knows it's safe to rely on the gate).
+     */
+    @ColumnInfo(name = "car_bt_configured")
+    val carBtConfigured: Boolean,
+
     @ColumnInfo(name = "accepted_for_processing")
     val acceptedForProcessing: Boolean,
     @ColumnInfo(name = "dedupe_reason")

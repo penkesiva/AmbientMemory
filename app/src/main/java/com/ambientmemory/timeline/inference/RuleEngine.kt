@@ -10,7 +10,12 @@ data class InferenceOutput(
 )
 
 class RuleEngine {
-    fun infer(scene: SceneUnderstandingResult, activityState: String): InferenceOutput {
+    fun infer(
+        scene: SceneUnderstandingResult,
+        activityState: String,
+        carBtConnected: Boolean,
+        carBtConfigured: Boolean,
+    ): InferenceOutput {
         val tokens =
             scene.objects
                 .map { normalizeToken(it) }
@@ -30,9 +35,18 @@ class RuleEngine {
                 place == "office" ||
                 place == "bathroom"
         val likelyCommuting =
-            vehicleVisual ||
-                place == "vehicle" ||
-                (act == "IN_VEHICLE" && !indoorLike && (roadLike || place == "outdoors" || place == "vehicle"))
+            if (carBtConfigured) {
+                // With BT gate enabled, "commuting" should require a motion/transit context in addition to car connectivity.
+                val motionEvidence =
+                    act == "IN_VEHICLE" ||
+                        (act == "STILL" && (roadLike || place == "outdoors" || vehicleVisual || place == "vehicle"))
+                carBtConnected && motionEvidence
+            } else {
+                // Fallback to legacy behavior when BT is not configured.
+                vehicleVisual ||
+                    place == "vehicle" ||
+                    (act == "IN_VEHICLE" && !indoorLike && (roadLike || place == "outdoors" || place == "vehicle"))
+            }
 
         // High-signal commuting
         if (likelyCommuting) {

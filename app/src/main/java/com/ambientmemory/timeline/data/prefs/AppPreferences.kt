@@ -36,6 +36,12 @@ object AppPreferenceKeys {
     /** Use confirmed Insights (beta) as weak priors when classifying activity */
     val insightPriorsEnabled = booleanPreferencesKey("insight_priors_enabled")
 
+    /** If enabled, commute inference requires a connected car BT headunit. */
+    val useCarBluetoothForCommute = booleanPreferencesKey("use_car_bluetooth_for_commute")
+
+    /** Bluetooth MAC/address of the user-selected car headunit device. */
+    val carBluetoothDeviceAddress = stringPreferencesKey("car_bluetooth_device_address")
+
     val lastActivityState = stringPreferencesKey("last_activity_state")
     val lastActivityUpdatedMillis = longPreferencesKey("last_activity_updated_millis")
 }
@@ -59,4 +65,6 @@ object AppPreferenceDefaults {
     const val BLUR_SENSITIVE = true
     const val INSIGHT_PRIORS = true
     const val UNKNOWN_ACTIVITY = "UNKNOWN"
+    const val USE_CAR_BT_COMMUTE = false
+    const val CAR_BT_DEVICE_ADDRESS = ""
 }

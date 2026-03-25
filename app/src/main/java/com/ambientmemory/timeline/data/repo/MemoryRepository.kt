@@ -317,6 +317,10 @@ class MemoryRepository(
                     blurSensitiveInUi = p[AppPreferenceKeys.blurSensitiveInUi] ?: AppPreferenceDefaults.BLUR_SENSITIVE,
                     insightPriorsEnabled =
                         p[AppPreferenceKeys.insightPriorsEnabled] ?: AppPreferenceDefaults.INSIGHT_PRIORS,
+                    useCarBluetoothForCommute =
+                        p[AppPreferenceKeys.useCarBluetoothForCommute] ?: AppPreferenceDefaults.USE_CAR_BT_COMMUTE,
+                    carBluetoothDeviceAddress =
+                        p[AppPreferenceKeys.carBluetoothDeviceAddress] ?: AppPreferenceDefaults.CAR_BT_DEVICE_ADDRESS,
                 )
             }
 
@@ -356,4 +360,10 @@ data class AmbientSettings(
     val localOnlyStorage: Boolean,
     val blurSensitiveInUi: Boolean,
     val insightPriorsEnabled: Boolean,
+
+    /** Use car BT connectivity as a strong commute gate. */
+    val useCarBluetoothForCommute: Boolean,
+
+    /** Bluetooth MAC/address for the selected car headunit. */
+    val carBluetoothDeviceAddress: String,
 )

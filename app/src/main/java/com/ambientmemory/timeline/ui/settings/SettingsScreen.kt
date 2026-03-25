@@ -36,6 +36,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ambientmemory.timeline.AmbientMemoryApp
 import com.ambientmemory.timeline.R
+import com.ambientmemory.timeline.bluetooth.CarBluetoothDetector
 import com.ambientmemory.timeline.data.prefs.AppPreferenceDefaults
 import com.ambientmemory.timeline.data.prefs.AppPreferenceKeys
 import com.ambientmemory.timeline.data.prefs.appDataStore
@@ -72,6 +73,8 @@ fun SettingsRoute(
                 localOnlyStorage = AppPreferenceDefaults.LOCAL_ONLY,
                 blurSensitiveInUi = AppPreferenceDefaults.BLUR_SENSITIVE,
                 insightPriorsEnabled = AppPreferenceDefaults.INSIGHT_PRIORS,
+                useCarBluetoothForCommute = AppPreferenceDefaults.USE_CAR_BT_COMMUTE,
+                carBluetoothDeviceAddress = AppPreferenceDefaults.CAR_BT_DEVICE_ADDRESS,
             ),
     )
 
@@ -245,6 +248,37 @@ fun SettingsRoute(
                     }
                 },
             )
+
+            Text("Commute detection", style = MaterialTheme.typography.titleSmall)
+            SettingsSwitchRow(
+                title = "Use car Bluetooth to detect commute",
+                checked = settings.useCarBluetoothForCommute,
+                onChecked = { v ->
+                    scope.launch { dataStore.edit { it[AppPreferenceKeys.useCarBluetoothForCommute] = v } }
+                },
+            )
+            OutlinedTextField(
+                value = settings.carBluetoothDeviceAddress,
+                onValueChange = { v ->
+                    scope.launch { dataStore.edit { it[AppPreferenceKeys.carBluetoothDeviceAddress] = v.trim() } }
+                },
+                label = { Text("Car BT device address") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            Button(
+                onClick = {
+                    scope.launch {
+                        val addr = CarBluetoothDetector.getAnyConnectedDeviceAddress(app.applicationContext)
+                        if (addr != null) {
+                            dataStore.edit { it[AppPreferenceKeys.carBluetoothDeviceAddress] = addr }
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Set from current car connection")
+            }
 
             Button(
                 onClick = {

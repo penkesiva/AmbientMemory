@@ -25,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import com.ambientmemory.timeline.AmbientMemoryApp
 import com.ambientmemory.timeline.MainActivity
 import com.ambientmemory.timeline.R
+import com.ambientmemory.timeline.bluetooth.CarBluetoothDetector
 import com.ambientmemory.timeline.activity.ActivityTransitionSubscription
 import com.ambientmemory.timeline.data.db.RawCaptureEventEntity
 import com.ambientmemory.timeline.diagnostics.CaptureEventLog
@@ -475,6 +476,17 @@ class MemoryCaptureService : LifecycleService() {
                 nowMillis = now,
                 settings = settings,
             )
+
+        val carBtConfigured =
+            settings.useCarBluetoothForCommute &&
+                settings.carBluetoothDeviceAddress.isNotBlank() &&
+                CarBluetoothDetector.hasBluetoothConnectPermission(applicationContext)
+        val carBtConnected =
+            carBtConfigured &&
+                CarBluetoothDetector.isDeviceConnected(
+                    applicationContext,
+                    settings.carBluetoothDeviceAddress,
+                )
         val row =
             RawCaptureEventEntity(
                 captureSessionId = sessionId,
@@ -482,6 +494,8 @@ class MemoryCaptureService : LifecycleService() {
                 imageUri = absolutePath,
                 imageHash = decision.imageHash,
                 activityState = activityState,
+                carBtConnected = carBtConnected,
+                carBtConfigured = carBtConfigured,
                 acceptedForProcessing = decision.accepted,
                 dedupeReason = decision.reason,
                 processingStatus =

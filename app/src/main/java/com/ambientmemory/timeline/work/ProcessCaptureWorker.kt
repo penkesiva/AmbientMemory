@@ -98,7 +98,12 @@ class ProcessCaptureWorker(
 
         var inference =
             if (settings.ruleEngineEnabled) {
-                g.ruleEngine.infer(sceneRaw, raw.activityState)
+                g.ruleEngine.infer(
+                    scene = sceneRaw,
+                    activityState = raw.activityState,
+                    carBtConnected = raw.carBtConnected,
+                    carBtConfigured = raw.carBtConfigured,
+                )
             } else {
                 InferenceOutput(
                     activity = "unknown",
