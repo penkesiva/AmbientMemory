@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ambient Memory Viewer</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+  </head>
+  <body>
+    <div id="hud">
+      <div class="row">
+        <div class="brand">
+          <div class="title">Ambient Memory</div>
+          <div class="sub">
+            Left-drag: rotate · Right-drag: pan · Scroll: zoom · Click (tap) a point: inspect
+          </div>
+        </div>
+        <div class="actions">
+          <button id="reloadBtn" class="btn">Reload DB</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="cardTitle">Filters</div>
+          <label class="field">
+            <span>Activity</span>
+            <select id="activityFilter"></select>
+          </label>
+          <label class="field">
+            <span>Where</span>
+            <select id="whereFilter"></select>
+          </label>
+          <label class="field">
+            <span>Time slot</span>
+            <input id="timeSlider" type="range" min="0" max="1000" value="1000" />
+          </label>
+          <label class="field">
+            <span>Jump to session</span>
+            <input id="sessionSlider" type="range" min="0" max="0" value="0" step="1" />
+          </label>
+          <div id="sessionLabel" class="sessionLabel">Loading sessions…</div>
+          <div id="sessionChips" class="chips"></div>
+          <div class="hint">
+            Tip: drag the camera, then click points. Use time to scrub inside the selected
+            session.
+          </div>
+        </div>
+
+        <div class="card cardDetail">
+          <div class="cardTitle">Event detail</div>
+          <div class="imgWrap">
+            <img id="detailImg" alt="Event image" />
+          </div>
+          <div class="metaRow">
+            <div id="sceneConf" class="pill">Scene</div>
+            <div id="activityConf" class="pill">Activity</div>
+          </div>
+          <div id="detailText" class="detailText detailScroll">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="canvas"></div>
+    <div id="status" class="status"></div>
+
+    <script type="module" src="./viewer.js"></script>
+  </body>
+</html>
+

@@ -6,6 +6,8 @@
 /build/
 **/build/
 captures/
+tools/memory-viewer/data/
+tools/memory-viewer/.server_pid
 *.apk
 *.ap_
 *.aab
