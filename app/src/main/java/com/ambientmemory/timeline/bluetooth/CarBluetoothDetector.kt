@@ -46,7 +46,5 @@ object CarBluetoothDetector {
         return headset == BluetoothProfile.STATE_CONNECTED
     }
 
-    private fun hasBluetoothConnectPermission(context: Context): Boolean =
-        hasBluetoothConnectPermission(context)
 }
 
