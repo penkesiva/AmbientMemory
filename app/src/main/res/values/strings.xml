@@ -32,5 +32,6 @@
     <string name="delete_action">Delete</string>
     <string name="edit_insight_title">Edit insight</string>
     <string name="save_action">Save</string>
+    <string name="undo_last_correction">Undo last correction</string>
     <string name="nav_back">Back</string>
 </resources>

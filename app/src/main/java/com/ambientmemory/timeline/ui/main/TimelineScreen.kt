@@ -64,6 +64,7 @@ fun TimelineRoute(
     val active by viewModel.activeCaptureSession.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val events by viewModel.captureEvents.collectAsStateWithLifecycle()
+    val canUndoCorrection by viewModel.canUndoCorrection.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -120,6 +121,11 @@ fun TimelineRoute(
                             Button(onClick = onStopSession) {
                                 Text(stringResource(R.string.stop_session))
                             }
+                        }
+                    }
+                    if (canUndoCorrection) {
+                        TextButton(onClick = { viewModel.undoLastCorrection() }) {
+                            Text(stringResource(R.string.undo_last_correction))
                         }
                     }
                     active?.let {

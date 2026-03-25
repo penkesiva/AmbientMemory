@@ -172,7 +172,7 @@ class MemoryRepository(
         event: InferredEventEntity,
         newActivity: String,
         newWhere: String,
-    ) {
+    ): InferredEventEntity {
         val correctedActivity = normalizeLabel(newActivity, fallback = event.activity)
         val correctedWhere = normalizeLabel(newWhere, fallback = event.whereLabel)
         val updated =
@@ -190,6 +190,11 @@ class MemoryRepository(
                 activity = correctedActivity,
             )
         }
+        return updated
+    }
+
+    suspend fun restoreInferredEvent(event: InferredEventEntity) {
+        dao.updateInferred(event)
     }
 
     private suspend fun upsertConfirmedFeedbackInsight(
@@ -212,7 +217,7 @@ class MemoryRepository(
                     insightKey = key,
                     category = "preference",
                     text = text,
-                    status = "confirmed",
+                    status = "candidate",
                     confidence = 0.95f,
                     evidenceCount = 1,
                     reasonJson = reason,
@@ -227,7 +232,12 @@ class MemoryRepository(
             id = existing.id,
             text = text,
             source = "user_confirmed",
-            status = "confirmed",
+            status =
+                if (existing.status == "confirmed" || existing.evidenceCount + 1 >= 2) {
+                    "confirmed"
+                } else {
+                    "candidate"
+                },
             updatedAt = now,
         )
         dao.updateInsightEvidence(

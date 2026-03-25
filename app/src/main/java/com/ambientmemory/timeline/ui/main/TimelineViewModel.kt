@@ -10,14 +10,26 @@ import com.ambientmemory.timeline.data.repo.AmbientSettings
 import com.ambientmemory.timeline.data.repo.MemoryRepository
 import com.ambientmemory.timeline.data.prefs.AppPreferenceDefaults
 import com.ambientmemory.timeline.diagnostics.CaptureEventLog
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 class TimelineViewModel(
     private val repository: MemoryRepository,
 ) : ViewModel() {
+    private data class CorrectionSnapshot(
+        val before: InferredEventEntity,
+    )
+
+    private val lastCorrection = MutableStateFlow<CorrectionSnapshot?>(null)
+    val canUndoCorrection: StateFlow<Boolean> =
+        lastCorrection
+            .map { it != null }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val timelineSessions: StateFlow<List<TimelineSessionEntity>> =
         repository.timelineSessions.stateIn(
             viewModelScope,
@@ -73,6 +85,18 @@ class TimelineViewModel(
                 newActivity = activity,
                 newWhere = where,
             )
+            lastCorrection.value =
+                CorrectionSnapshot(
+                    before = event,
+                )
+        }
+    }
+
+    fun undoLastCorrection() {
+        val snapshot = lastCorrection.value ?: return
+        viewModelScope.launch {
+            repository.restoreInferredEvent(snapshot.before)
+            lastCorrection.value = null
         }
     }
 
