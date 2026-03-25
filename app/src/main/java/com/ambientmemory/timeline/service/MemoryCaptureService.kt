@@ -247,11 +247,11 @@ class MemoryCaptureService : LifecycleService() {
                 val capture =
                     ImageCapture.Builder()
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .setTargetResolution(Size(1280, 720))
+                        .setTargetResolution(Size(640, 360))
                         .build()
                 val analysis =
                     ImageAnalysis.Builder()
-                        .setTargetResolution(Size(1280, 720))
+                        .setTargetResolution(Size(640, 360))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build().apply {
                             setAnalyzer(cameraExecutor) { image ->
