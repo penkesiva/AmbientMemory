@@ -16,8 +16,6 @@ const els = {
   activityConf: document.getElementById("activityConf"),
   reloadBtn: document.getElementById("reloadBtn"),
   status: document.getElementById("status"),
-  modalThumbBtn: document.getElementById("modalThumbBtn"),
-  modalThumbImg: document.getElementById("modalThumbImg"),
 };
 
 const THEME_KEY = "ambientMemoryViewerTheme";
@@ -278,71 +276,6 @@ function makePointsScene({ positions, colors }) {
   return { group, points, geom, glowGeom };
 }
 
-const MODAL_WHAT_MAX_LEN = 720;
-const MODAL_PICK_HINT_DEFAULT =
-  "Click a dot to load that event here and in the Event detail panel. Each dot is one captured moment; the line connects them in time order (filtered set).";
-
-function setModalPickHint(message) {
-  const structured = document.getElementById("modalPickStructured");
-  const hint = document.getElementById("modalPickHint");
-  if (structured) structured.hidden = true;
-  if (hint) {
-    hint.hidden = false;
-    hint.textContent = message;
-  }
-}
-
-function fillModalPickFromEvent(e) {
-  const structured = document.getElementById("modalPickStructured");
-  const hint = document.getElementById("modalPickHint");
-  const whatWrap = document.getElementById("modalPickWhatWrap");
-  const whatText = document.getElementById("modalPickWhatText");
-  if (!structured) return;
-  if (hint) hint.hidden = true;
-  structured.hidden = false;
-
-  const id = e.id;
-  const activity = String(e.activity ?? "unknown").replace(/^./, (c) => c.toUpperCase());
-  const where = e.where_label ?? "unknown";
-  const scenePct = Math.round((Number(e.scene_confidence ?? 0.5) * 100) || 0);
-  const actPct = Math.round((Number(e.confidence ?? 0.5) * 100) || 0);
-  const rawWhat = String(e.what_summary ?? "").trim();
-
-  const idEl = document.getElementById("modalPickEventId");
-  const timeEl = document.getElementById("modalPickDateTime");
-  if (idEl) idEl.textContent = `#${id}`;
-  if (timeEl) {
-    timeEl.textContent = fmtTime(e.start_time_millis);
-    try {
-      timeEl.dateTime = new Date(Number(e.start_time_millis)).toISOString();
-    } catch {
-      timeEl.removeAttribute("datetime");
-    }
-  }
-  const actEl = document.getElementById("modalPickActivity");
-  const whereEl = document.getElementById("modalPickWhere");
-  if (actEl) actEl.textContent = activity;
-  if (whereEl) whereEl.textContent = where;
-  const sceneM = document.getElementById("modalPickSceneMetric");
-  const actM = document.getElementById("modalPickActMetric");
-  if (sceneM) sceneM.textContent = `Scene ${scenePct}%`;
-  if (actM) actM.textContent = `Activity ${actPct}%`;
-
-  if (whatWrap && whatText) {
-    if (rawWhat) {
-      const truncated =
-        rawWhat.length > MODAL_WHAT_MAX_LEN
-          ? `${rawWhat.slice(0, MODAL_WHAT_MAX_LEN)}…`
-          : rawWhat;
-      whatText.textContent = truncated;
-      whatWrap.hidden = false;
-    } else {
-      whatText.textContent = "";
-      whatWrap.hidden = true;
-    }
-  }
-}
-
 function updateHighlight(pointsGeom, baseColors, highlightIndex, glowGeom = null) {
   const c = pointsGeom.attributes.color.array;
   for (let i = 0; i < baseColors.length / 3; i++) {
@@ -409,44 +342,20 @@ function setEventDetails(events, e) {
   els.detailImg.onerror = () => {
     els.detailImg.src = "";
     els.detailImg.alt = "Image missing under data/captures/";
-    if (els.modalThumbBtn && els.modalThumbImg) {
-      els.modalThumbBtn.hidden = true;
-      els.modalThumbImg.src = "";
-    }
   };
-
-  if (els.modalThumbBtn && els.modalThumbImg) {
-    if (file) {
-      const capSrc = `./data/captures/${encodeURIComponent(file)}`;
-      els.modalThumbImg.src = capSrc;
-      els.modalThumbImg.alt = `Preview #${id}`;
-      els.modalThumbBtn.hidden = false;
-      els.modalThumbBtn.disabled = false;
-      els.modalThumbImg.onerror = () => {
-        els.modalThumbBtn.hidden = true;
-        els.modalThumbImg.src = "";
-      };
-    } else {
-      els.modalThumbImg.src = "";
-      els.modalThumbBtn.hidden = true;
-      els.modalThumbBtn.disabled = true;
-    }
-  }
 
   const scenePct = Math.round((Number(e.scene_confidence ?? 0.5) * 100) || 0);
   const actPct = Math.round((Number(e.confidence ?? 0.5) * 100) || 0);
   els.sceneConf.textContent = `Scene ${scenePct}%`;
   els.activityConf.textContent = `Activity ${actPct}%`;
-
-  fillModalPickFromEvent(e);
 }
 
 let state = null;
 
-const viewerModal = document.getElementById("viewerModal");
-const modalCanvasHost = document.getElementById("modalCanvasHost");
 const mainCanvasHost = document.getElementById("canvas");
-const open3dModalBtn = document.getElementById("open3dModalBtn");
+const hudEl = document.getElementById("hud");
+const togglePanelsBtn = document.getElementById("togglePanelsBtn");
+const PANELS_COLLAPSED_KEY = "ambientMemoryViewerPanelsCollapsed";
 
 function fitRendererToHost() {
   if (!state?.renderer?.domElement) return;
@@ -459,30 +368,37 @@ function fitRendererToHost() {
   state.renderer.setSize(w, h);
 }
 
-function close3dModal() {
-  closeImageLightbox();
-  if (!viewerModal || !mainCanvasHost || !state?.renderer) return;
-  if (viewerModal.hidden) return;
-  mainCanvasHost.appendChild(state.renderer.domElement);
-  viewerModal.hidden = true;
-  viewerModal.setAttribute("aria-hidden", "true");
-  fitRendererToHost();
+function applyPanelsCollapsed(collapsed) {
+  if (!hudEl || !togglePanelsBtn) return;
+  hudEl.classList.toggle("hud--panels-collapsed", collapsed);
+  togglePanelsBtn.setAttribute("aria-pressed", collapsed ? "true" : "false");
+  togglePanelsBtn.textContent = collapsed ? "Show panels" : "Hide panels";
+  togglePanelsBtn.setAttribute(
+    "aria-label",
+    collapsed ? "Show filter and event detail panels" : "Hide panels to focus on the 3D view",
+  );
+  try {
+    localStorage.setItem(PANELS_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+  requestAnimationFrame(() => fitRendererToHost());
 }
 
-function open3dModal() {
-  if (!viewerModal || !modalCanvasHost || !state?.renderer) return;
-  modalCanvasHost.appendChild(state.renderer.domElement);
-  viewerModal.hidden = false;
-  viewerModal.setAttribute("aria-hidden", "false");
-  if (state.highlightIndex >= 0 && state.events[state.highlightIndex]) {
-    setEventDetails(state.events, state.events[state.highlightIndex]);
-  } else {
-    setModalPickHint(MODAL_PICK_HINT_DEFAULT);
+function initPanelsCollapsed() {
+  let collapsed = false;
+  try {
+    const v = localStorage.getItem(PANELS_COLLAPSED_KEY);
+    if (v === "1") collapsed = true;
+  } catch {
+    /* ignore */
   }
-  requestAnimationFrame(() => {
-    fitRendererToHost();
-    requestAnimationFrame(fitRendererToHost);
-  });
+  applyPanelsCollapsed(collapsed);
+}
+
+function togglePanelsCollapsed() {
+  if (!hudEl) return;
+  applyPanelsCollapsed(!hudEl.classList.contains("hud--panels-collapsed"));
 }
 
 let viewerChromeBound = false;
@@ -494,18 +410,11 @@ function bindViewerChromeOnce() {
     const cur = document.documentElement.getAttribute("data-theme") || "dark";
     applyTheme(cur === "light" ? "dark" : "light");
   });
-  open3dModalBtn?.addEventListener("click", () => open3dModal());
-  document.getElementById("close3dModal")?.addEventListener("click", () => close3dModal());
-  viewerModal?.querySelector("[data-close-modal]")?.addEventListener("click", () => close3dModal());
+  togglePanelsBtn?.addEventListener("click", () => togglePanelsCollapsed());
   imageLightbox?.querySelector("[data-close-lightbox]")?.addEventListener("click", () =>
     closeImageLightbox(),
   );
   document.getElementById("lightboxClose")?.addEventListener("click", () => closeImageLightbox());
-  els.modalThumbBtn?.addEventListener("click", () => {
-    const src = els.modalThumbImg?.src;
-    if (!src) return;
-    openImageLightbox(src, els.modalThumbImg.alt || "Enlarged capture");
-  });
   els.detailImg?.addEventListener("click", () => {
     const src = els.detailImg?.src;
     if (!src) return;
@@ -516,21 +425,17 @@ function bindViewerChromeOnce() {
     if (imageLightbox && !imageLightbox.hidden) {
       e.preventDefault();
       closeImageLightbox();
-      return;
-    }
-    if (viewerModal && viewerModal.hidden === false) {
-      e.preventDefault();
-      close3dModal();
     }
   });
 }
 
+initPanelsCollapsed();
 bindViewerChromeOnce();
 
 async function loadAndRender() {
   if (!els.reloadBtn) return;
-  close3dModal();
-  if (open3dModalBtn) open3dModalBtn.disabled = true;
+  closeImageLightbox();
+  if (togglePanelsBtn) togglePanelsBtn.disabled = true;
   setStatus("Loading local DB…");
   const SQL = await loadSqlJs();
   const buf = await loadDbArrayBuffer();
@@ -540,7 +445,7 @@ async function loadAndRender() {
   const events = queryEvents(db, 2500);
   if (!events.length) {
     setStatus("No inferred events found. Pull the DB first.", "danger");
-    if (open3dModalBtn) open3dModalBtn.disabled = true;
+    if (togglePanelsBtn) togglePanelsBtn.disabled = true;
     return;
   }
 
@@ -768,9 +673,6 @@ async function loadAndRender() {
       els.detailImg.src = "";
       els.sceneConf.textContent = "Scene —";
       els.activityConf.textContent = "Activity —";
-      setModalPickHint(
-        "No events match the current filters or session. Try “All” for session, Activity, and Where.",
-      );
       return;
     }
     if (indices.length === 1) {
@@ -944,7 +846,7 @@ async function loadAndRender() {
   highlightBySlider();
 
   setStatus(`Loaded ${events.length} events. Click points to inspect.`);
-  if (open3dModalBtn) open3dModalBtn.disabled = false;
+  if (togglePanelsBtn) togglePanelsBtn.disabled = false;
 
   const animate = () => {
     requestAnimationFrame(animate);
@@ -965,7 +867,7 @@ els.reloadBtn?.addEventListener("click", async () => {
   } catch (e) {
     console.error(e);
     setStatus(`Reload failed: ${e.message || e}`, "danger");
-    if (open3dModalBtn) open3dModalBtn.disabled = true;
+    if (togglePanelsBtn) togglePanelsBtn.disabled = true;
   }
 });
 
@@ -975,6 +877,6 @@ try {
 } catch (e) {
   console.error(e);
   setStatus(`Init failed: ${e.message || e}`, "danger");
-  if (open3dModalBtn) open3dModalBtn.disabled = true;
+  if (togglePanelsBtn) togglePanelsBtn.disabled = true;
 }
 
