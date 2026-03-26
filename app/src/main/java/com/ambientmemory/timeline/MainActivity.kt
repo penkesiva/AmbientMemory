@@ -22,6 +22,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.activity.ComponentActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.contracts.HealthPermissionsRequestContract
+import com.ambientmemory.timeline.health.HealthConnectBridge
 import com.ambientmemory.timeline.service.MemoryCaptureService
 import com.ambientmemory.timeline.ui.insights.InsightsRoute
 import com.ambientmemory.timeline.ui.main.TimelineRoute
@@ -45,6 +50,11 @@ class MainActivity : ComponentActivity() {
                     viewModel(factory = TimelineViewModel.factory(app.graph.repository))
 
                 var canRun by remember { mutableStateOf(false) }
+                val hcPermissionLauncher =
+                    rememberLauncherForActivityResult(
+                        HealthPermissionsRequestContract(HealthConnectBridge.PROVIDER_PACKAGE_NAME),
+                    ) { }
+
                 val perms =
                     buildList {
                         add(Manifest.permission.CAMERA)
@@ -75,6 +85,22 @@ class MainActivity : ComponentActivity() {
                     canRun = granted
                     if (!granted) {
                         launcher.launch(perms)
+                    }
+                }
+
+                LaunchedEffect(canRun) {
+                    if (!canRun) return@LaunchedEffect
+                    if (!HealthConnectBridge.isSdkAvailable(this@MainActivity)) return@LaunchedEffect
+                    val hcClient =
+                        runCatching { HealthConnectClient.getOrCreate(this@MainActivity) }
+                            .getOrNull() ?: return@LaunchedEffect
+                    val grantedHc =
+                        withContext(Dispatchers.IO) {
+                            runCatching { hcClient.permissionController.getGrantedPermissions() }
+                                .getOrNull()
+                        } ?: return@LaunchedEffect
+                    if (!grantedHc.containsAll(HealthConnectBridge.READ_PERMISSIONS)) {
+                        hcPermissionLauncher.launch(HealthConnectBridge.READ_PERMISSIONS)
                     }
                 }
 

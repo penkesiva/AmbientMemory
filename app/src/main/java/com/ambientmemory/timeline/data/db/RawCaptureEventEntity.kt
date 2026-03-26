@@ -55,4 +55,10 @@ data class RawCaptureEventEntity(
     /** queued, processing, done, failed, skipped */
     @ColumnInfo(name = "processing_status")
     val processingStatus: String,
+    /**
+     * Optional JSON snapshot from Health Connect at capture time (Samsung Health → HC).
+     * Keys: hr, inExercise, exerciseTitle, steps5m (see [com.ambientmemory.timeline.health.HealthConnectBridge]).
+     */
+    @ColumnInfo(name = "health_connect_json")
+    val healthConnectJson: String? = null,
 )

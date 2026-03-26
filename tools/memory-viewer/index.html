@@ -10,57 +10,118 @@
   <body>
     <div id="hud">
       <div class="row">
-        <div class="brand">
+        <div
+          id="brandHit"
+          class="brand brand--clickable"
+          role="button"
+          tabindex="0"
+          aria-label="Show panels and reload database (keeps current theme)"
+        >
           <div class="title">Ambient Memory</div>
-          <div class="sub">
-            Left-drag: rotate · Right-drag: pan · Scroll: zoom · Hover a point: quick preview ·
-            Click: full detail
-          </div>
         </div>
-        <div class="actions actionsRow">
-          <button
-            type="button"
-            id="themeToggleBtn"
-            class="btn"
-            aria-label="Switch to light theme"
-          >
-            Light mode
-          </button>
-          <button
-            type="button"
-            id="togglePanelsBtn"
-            class="btn"
-            disabled
-            aria-pressed="false"
-            aria-label="Hide panels to focus on the 3D view"
-          >
-            Hide panels
-          </button>
-          <button type="button" id="reloadBtn" class="btn">Reload DB</button>
-        </div>
+      </div>
+
+      <div class="actions actionsStack">
+        <button
+          type="button"
+          id="themeToggleBtn"
+          class="btn"
+          aria-label="Switch to light theme"
+        >
+          Light mode
+        </button>
+        <button
+          type="button"
+          id="togglePanelsBtn"
+          class="btn"
+          disabled
+          aria-pressed="false"
+          aria-label="Hide panels to focus on the 3D view"
+        >
+          Hide panels
+        </button>
+        <button type="button" id="reloadBtn" class="btn">Reload DB</button>
       </div>
 
       <div class="grid">
         <div class="card">
           <div class="cardTitle">Filters</div>
-          <label class="field">
-            <span>Activity</span>
-            <select id="activityFilter"></select>
-          </label>
-          <label class="field">
-            <span>Where</span>
-            <select id="whereFilter"></select>
-          </label>
-          <label class="field">
-            <span>Time slot</span>
-            <input id="timeSlider" type="range" min="0" max="1000" value="1000" />
-          </label>
-          <label class="field">
-            <span>Jump to session</span>
-            <input id="sessionSlider" type="range" min="0" max="0" value="0" step="1" />
-          </label>
-          <div id="sessionLabel" class="sessionLabel">Loading sessions…</div>
-          <div id="sessionChips" class="chips"></div>
+
+          <div class="filterTagGroup">
+            <div class="filterTagGroup__head">
+              <span class="filterTagIcon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </span>
+              <span class="filterTagGroup__label">Session</span>
+            </div>
+            <div id="sessionChips" class="chips filterChips"></div>
+            <label class="field field--tagFollow">
+              <span>Jump</span>
+              <input
+                id="sessionSlider"
+                type="range"
+                min="0"
+                max="0"
+                value="0"
+                step="1"
+                aria-label="Jump between sessions"
+              />
+            </label>
+          </div>
+
+          <input type="hidden" id="activityFilter" value="__all__" />
+          <div class="filterTagGroup">
+            <div class="filterTagGroup__head">
+              <span class="filterTagIcon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+              </span>
+              <span class="filterTagGroup__label">Activity</span>
+            </div>
+            <div id="activityChips" class="chips filterChips"></div>
+          </div>
+
+          <input type="hidden" id="whereFilter" value="__all__" />
+          <div class="filterTagGroup">
+            <div class="filterTagGroup__head">
+              <span class="filterTagIcon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </span>
+              <span class="filterTagGroup__label">Where</span>
+            </div>
+            <div id="whereChips" class="chips filterChips"></div>
+          </div>
+
+          <div class="filterTagGroup">
+            <div class="filterTagGroup__head">
+              <span class="filterTagIcon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </span>
+              <span class="filterTagGroup__label">Time slot</span>
+            </div>
+            <label class="field field--tagFollow">
+              <input
+                id="timeSlider"
+                type="range"
+                min="0"
+                max="1000"
+                value="1000"
+                aria-label="Time slot within filtered events"
+              />
+            </label>
+          </div>
           <div class="hint">
             The 3D timeline fills the page behind these cards. Use
             <strong>Hide panels</strong> when you want a clear view of the scene, then
@@ -100,6 +161,7 @@
       </div>
       <div class="point-tooltip__body">
         <div id="pointTooltipWhen" class="point-tooltip__when"></div>
+        <div id="pointTooltipHealth" class="point-tooltip__health" hidden></div>
         <div id="pointTooltipWhat" class="point-tooltip__what"></div>
       </div>
     </div>

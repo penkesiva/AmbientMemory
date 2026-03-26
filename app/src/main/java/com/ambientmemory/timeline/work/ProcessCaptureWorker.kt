@@ -8,6 +8,7 @@ import com.ambientmemory.timeline.AmbientMemoryApp
 import com.ambientmemory.timeline.data.db.InferredEventEntity
 import com.ambientmemory.timeline.data.db.SceneUnderstandingResultEntity
 import com.ambientmemory.timeline.diagnostics.CaptureEventLog
+import com.ambientmemory.timeline.health.HealthConnectBridge
 import com.ambientmemory.timeline.inference.InferenceOutput
 import com.ambientmemory.timeline.inference.InferencePriors
 import org.json.JSONArray
@@ -175,6 +176,13 @@ class ProcessCaptureWorker(
         }
 
         val now = raw.timestampMillis
+        val healthLine = HealthConnectBridge.formatHowSummaryLine(raw.healthConnectJson)
+        val howWithHealth =
+            if (healthLine != null) {
+                "${inference.howSummary}\n$healthLine"
+            } else {
+                inference.howSummary
+            }
         val inferredRow =
             InferredEventEntity(
                 captureSessionId = raw.captureSessionId,
@@ -185,7 +193,7 @@ class ProcessCaptureWorker(
                 activity = inference.activity,
                 whereLabel = inference.whereLabel,
                 whatSummary = inference.whatSummary,
-                howSummary = inference.howSummary,
+                howSummary = howWithHealth,
                 whySummary = inference.whySummary,
                 confidence = inference.confidence,
                 sceneConfidence = sceneConfidence,

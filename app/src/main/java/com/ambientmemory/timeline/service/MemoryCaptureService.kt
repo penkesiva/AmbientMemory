@@ -29,6 +29,7 @@ import com.ambientmemory.timeline.bluetooth.CarBluetoothDetector
 import com.ambientmemory.timeline.activity.ActivityTransitionSubscription
 import com.ambientmemory.timeline.data.db.RawCaptureEventEntity
 import com.ambientmemory.timeline.diagnostics.CaptureEventLog
+import com.ambientmemory.timeline.health.HealthConnectBridge
 import com.ambientmemory.timeline.work.CaptureProcessing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -487,6 +488,10 @@ class MemoryCaptureService : LifecycleService() {
                     applicationContext,
                     settings.carBluetoothDeviceAddress,
                 )
+        val healthJson =
+            withContext(Dispatchers.IO) {
+                HealthConnectBridge.readSnapshotJson(applicationContext, now)
+            }
         val row =
             RawCaptureEventEntity(
                 captureSessionId = sessionId,
@@ -504,6 +509,7 @@ class MemoryCaptureService : LifecycleService() {
                     } else {
                         "skipped"
                     },
+                healthConnectJson = healthJson,
             )
         val rawId = graph.repository.insertRawCapture(row)
         if (decision.accepted) {

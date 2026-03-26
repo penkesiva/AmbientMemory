@@ -8,7 +8,6 @@ const els = {
   whereFilter: document.getElementById("whereFilter"),
   timeSlider: document.getElementById("timeSlider"),
   sessionSlider: document.getElementById("sessionSlider"),
-  sessionLabel: document.getElementById("sessionLabel"),
   sessionChips: document.getElementById("sessionChips"),
   detailText: document.getElementById("detailText"),
   detailImg: document.getElementById("detailImg"),
@@ -101,6 +100,32 @@ function captureFilenameFromRow(e) {
     .pop() || "";
 }
 
+/** Health Connect JSON from raw_capture_events (Samsung Health → HC). */
+function formatHealthBriefFromRow(e) {
+  const raw =
+    e?.health_connect_json ??
+    e?.healthConnectJson ??
+    e?.HEALTH_CONNECT_JSON ??
+    "";
+  if (raw == null || String(raw).trim() === "") return "";
+  let o;
+  try {
+    o = JSON.parse(String(raw));
+  } catch {
+    return "";
+  }
+  const parts = [];
+  if (o.hr != null && Number.isFinite(Number(o.hr))) parts.push(`HR ${Math.round(Number(o.hr))} bpm`);
+  if (o.inExercise === true) {
+    const t = String(o.exerciseTitle || "").trim();
+    parts.push(t || "Exercise");
+  }
+  if (o.steps5m != null && Number(o.steps5m) >= 0) {
+    parts.push(`~${Number(o.steps5m)} steps (5m)`);
+  }
+  return parts.length ? parts.join(" · ") : "";
+}
+
 function colorPalette() {
   return {
     working: 0x67e8f9,
@@ -148,7 +173,8 @@ function queryEvents(db, limit = 2000) {
       ie.scene_confidence,
       ie.inference_source,
       ie.timeline_session_id,
-      re.image_uri
+      re.image_uri,
+      re.health_connect_json
     FROM inferred_events ie
     JOIN raw_capture_events re ON re.id = ie.raw_capture_id
     ORDER BY ie.start_time_millis ASC
@@ -322,12 +348,16 @@ function setEventDetails(events, e) {
     sessionId != null ? state?.sessionById?.get(Number(sessionId))?.title : null;
   const sessionLine = sessionTitle ? `Session: ${sessionTitle}\n` : "";
 
+  const healthBrief = formatHealthBriefFromRow(e);
+  const healthBlock = healthBrief ? `Health: ${healthBrief}\n\n` : "";
+
   els.detailText.textContent =
     `#${id}\n` +
     `${time}\n` +
     sessionLine +
     `Activity: ${String(activity).replace(/^./, (c) => c.toUpperCase())}\n` +
     `Where: ${where}\n\n` +
+    healthBlock +
     `What: ${what}\n\n` +
     `How: ${how}\n` +
     `Why: ${why || "—"}`;
@@ -411,6 +441,26 @@ function bindViewerChromeOnce() {
     applyTheme(cur === "light" ? "dark" : "light");
   });
   togglePanelsBtn?.addEventListener("click", () => togglePanelsCollapsed());
+
+  function runReloadKeepingTheme() {
+    applyPanelsCollapsed(false);
+    return loadAndRender().catch((e) => {
+      console.error(e);
+      setStatus(`Reload failed: ${e.message || e}`, "danger");
+      if (togglePanelsBtn) togglePanelsBtn.disabled = true;
+    });
+  }
+
+  const brandHit = document.getElementById("brandHit");
+  brandHit?.addEventListener("click", () => {
+    void runReloadKeepingTheme();
+  });
+  brandHit?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    void runReloadKeepingTheme();
+  });
+
   imageLightbox?.querySelector("[data-close-lightbox]")?.addEventListener("click", () =>
     closeImageLightbox(),
   );
@@ -448,8 +498,13 @@ async function loadAndRender() {
     }
     const tw = document.getElementById("pointTooltipWhen");
     const tq = document.getElementById("pointTooltipWhat");
+    const th = document.getElementById("pointTooltipHealth");
     if (tw) tw.textContent = "";
     if (tq) tq.textContent = "";
+    if (th) {
+      th.textContent = "";
+      th.hidden = true;
+    }
   })();
   if (togglePanelsBtn) togglePanelsBtn.disabled = true;
   setStatus("Loading local DB…");
@@ -472,8 +527,6 @@ async function loadAndRender() {
   // Filters
   const activities = Array.from(new Set(events.map((e) => e.activity || "unknown"))).sort();
   const whereLabels = Array.from(new Set(events.map((e) => e.where_label || "unknown"))).sort();
-  els.activityFilter.innerHTML = `<option value="__all__">All</option>` + activities.map((a) => `<option value="${a}">${a}</option>`).join("");
-  els.whereFilter.innerHTML = `<option value="__all__">All</option>` + whereLabels.map((w) => `<option value="${w}">${w}</option>`).join("");
 
   // 3D scene setup
   const activityColors = colorPalette();
@@ -719,6 +772,45 @@ async function loadAndRender() {
     highlightByEventId(events[bestIdx].id);
   }
 
+  const activityChipsEl = document.getElementById("activityChips");
+  const whereChipsEl = document.getElementById("whereChips");
+
+  function syncEnumFilterChips(host, value) {
+    if (!host) return;
+    for (const btn of host.querySelectorAll(".chipBtn")) {
+      btn.classList.toggle("chipBtnActive", btn.dataset.filterValue === value);
+    }
+  }
+
+  function buildActivityWhereChips() {
+    if (els.activityFilter) els.activityFilter.value = "__all__";
+    if (els.whereFilter) els.whereFilter.value = "__all__";
+
+    const wire = (host, values, input) => {
+      if (!host || !input) return;
+      host.innerHTML = "";
+      const addChip = (label, val) => {
+        const b = document.createElement("div");
+        b.className = "chipBtn";
+        b.textContent = label;
+        b.dataset.filterValue = val;
+        b.addEventListener("click", () => {
+          input.value = val;
+          syncEnumFilterChips(host, val);
+          applyFilterColors({ forceHighlight: false });
+          highlightBySlider();
+        });
+        host.appendChild(b);
+      };
+      addChip("All", "__all__");
+      for (const v of values) addChip(v, v);
+      syncEnumFilterChips(host, input.value);
+    };
+
+    wire(activityChipsEl, activities, els.activityFilter);
+    wire(whereChipsEl, whereLabels, els.whereFilter);
+  }
+
   // Point picking: only on a true click/tap (not after orbit drag)
   const PICK_SLOP_PX = 12;
   let pickPointer = null;
@@ -742,6 +834,7 @@ async function loadAndRender() {
   const pointTooltip = document.getElementById("pointTooltip");
   const pointTooltipImg = document.getElementById("pointTooltipImg");
   const pointTooltipWhen = document.getElementById("pointTooltipWhen");
+  const pointTooltipHealth = document.getElementById("pointTooltipHealth");
   const pointTooltipWhat = document.getElementById("pointTooltipWhat");
   let hoverPickRaf = null;
   let pendingHover = null;
@@ -761,6 +854,10 @@ async function loadAndRender() {
       pointTooltipImg.hidden = true;
     }
     if (pointTooltipWhen) pointTooltipWhen.textContent = "";
+    if (pointTooltipHealth) {
+      pointTooltipHealth.textContent = "";
+      pointTooltipHealth.hidden = true;
+    }
     if (pointTooltipWhat) pointTooltipWhat.textContent = "";
   }
 
@@ -784,6 +881,16 @@ async function loadAndRender() {
   function showPointTooltipForEvent(evRow, clientX, clientY) {
     if (!pointTooltip || !pointTooltipWhen || !pointTooltipWhat) return;
     pointTooltipWhen.textContent = fmtTime(evRow.start_time_millis);
+    const hb = formatHealthBriefFromRow(evRow);
+    if (pointTooltipHealth) {
+      if (hb) {
+        pointTooltipHealth.textContent = hb;
+        pointTooltipHealth.hidden = false;
+      } else {
+        pointTooltipHealth.textContent = "";
+        pointTooltipHealth.hidden = true;
+      }
+    }
     const whatRaw = String(evRow.what_summary ?? "").trim();
     pointTooltipWhat.textContent =
       whatRaw.length > 140 ? `${whatRaw.slice(0, 140)}…` : whatRaw || "—";
@@ -880,17 +987,6 @@ async function loadAndRender() {
     pickPointer = null;
   });
 
-  // Filter changes: we currently re-query only highlight colors; cheap. If you need full point filtering,
-  // we can rebuild geometry per filter.
-  els.activityFilter.addEventListener("change", () => {
-    applyFilterColors({ forceHighlight: false });
-    highlightBySlider();
-  });
-  els.whereFilter.addEventListener("change", () => {
-    applyFilterColors({ forceHighlight: false });
-    highlightBySlider();
-  });
-
   // Session selection (scrubber)
   const chips = [];
   function updateSessionUI() {
@@ -898,12 +994,6 @@ async function loadAndRender() {
     // 0 == all sessions, otherwise 1..N select sessions[sliderVal-1]
     const selectedSessionIndex = sliderVal === 0 ? -1 : sliderVal - 1;
     state.selectedSessionId = selectedSessionIndex === -1 ? null : state.sessions[selectedSessionIndex]?.id ?? null;
-
-    const label =
-      state.selectedSessionId == null
-        ? "All sessions"
-        : (state.sessionById.get(Number(state.selectedSessionId))?.title ?? "Session");
-    if (els.sessionLabel) els.sessionLabel.textContent = label;
 
     for (const btn of chips) {
       const idx = Number(btn.dataset.sessionIndex);
@@ -957,6 +1047,7 @@ async function loadAndRender() {
     // Start on "All sessions" so every inferred row is visible (see selectedSessionId default).
     els.sessionSlider.value = "0";
   }
+  buildActivityWhereChips();
   buildSessionChips();
   updateSessionUI();
 
@@ -994,14 +1085,12 @@ async function loadAndRender() {
   animate();
 }
 
-els.reloadBtn?.addEventListener("click", async () => {
-  try {
-    await loadAndRender();
-  } catch (e) {
+els.reloadBtn?.addEventListener("click", () => {
+  void loadAndRender().catch((e) => {
     console.error(e);
     setStatus(`Reload failed: ${e.message || e}`, "danger");
     if (togglePanelsBtn) togglePanelsBtn.disabled = true;
-  }
+  });
 });
 
 // First load

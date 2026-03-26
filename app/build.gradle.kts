@@ -18,7 +18,7 @@ val perceptronApiKeyEscaped = perceptronApiKeyRaw.replace("\\", "\\\\").replace(
 
 android {
     namespace = "com.ambientmemory.timeline"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.ambientmemory.timeline"
@@ -94,6 +94,8 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax")
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    implementation("androidx.health.connect:connect-client:1.1.0")
 
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("com.google.mlkit:object-detection:17.0.2")
