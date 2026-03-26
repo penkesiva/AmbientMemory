@@ -13,7 +13,8 @@
         <div class="brand">
           <div class="title">Ambient Memory</div>
           <div class="sub">
-            Left-drag: rotate · Right-drag: pan · Scroll: zoom · Click (tap) a point: inspect
+            Left-drag: rotate · Right-drag: pan · Scroll: zoom · Hover a point: quick preview ·
+            Click: full detail
           </div>
         </div>
         <div class="actions actionsRow">
@@ -92,6 +93,16 @@
     </div>
 
     <div id="canvas"></div>
+
+    <div id="pointTooltip" class="point-tooltip" hidden role="tooltip">
+      <div id="pointTooltipImgWrap" class="point-tooltip__imgWrap">
+        <img id="pointTooltipImg" class="point-tooltip__img" alt="" width="120" height="68" decoding="async" />
+      </div>
+      <div class="point-tooltip__body">
+        <div id="pointTooltipWhen" class="point-tooltip__when"></div>
+        <div id="pointTooltipWhat" class="point-tooltip__what"></div>
+      </div>
+    </div>
 
     <div id="imageLightbox" class="image-lightbox" hidden aria-hidden="true">
       <div class="image-lightbox__backdrop" data-close-lightbox aria-hidden="true"></div>

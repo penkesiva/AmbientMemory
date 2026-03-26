@@ -435,6 +435,22 @@ bindViewerChromeOnce();
 async function loadAndRender() {
   if (!els.reloadBtn) return;
   closeImageLightbox();
+  (() => {
+    const t = document.getElementById("pointTooltip");
+    if (t) {
+      t.hidden = true;
+      t.classList.remove("point-tooltip--noimg");
+    }
+    const img = document.getElementById("pointTooltipImg");
+    if (img) {
+      img.removeAttribute("src");
+      img.hidden = true;
+    }
+    const tw = document.getElementById("pointTooltipWhen");
+    const tq = document.getElementById("pointTooltipWhat");
+    if (tw) tw.textContent = "";
+    if (tq) tq.textContent = "";
+  })();
   if (togglePanelsBtn) togglePanelsBtn.disabled = true;
   setStatus("Loading local DB…");
   const SQL = await loadSqlJs();
@@ -723,8 +739,125 @@ async function loadAndRender() {
     return -1;
   }
 
+  const pointTooltip = document.getElementById("pointTooltip");
+  const pointTooltipImg = document.getElementById("pointTooltipImg");
+  const pointTooltipWhen = document.getElementById("pointTooltipWhen");
+  const pointTooltipWhat = document.getElementById("pointTooltipWhat");
+  let hoverPickRaf = null;
+  let pendingHover = null;
+  let lastHoverIdx = -1;
+  let tooltipImgToken = 0;
+
+  function hidePointTooltip() {
+    lastHoverIdx = -1;
+    pendingHover = null;
+    tooltipImgToken += 1;
+    if (pointTooltip) {
+      pointTooltip.hidden = true;
+      pointTooltip.classList.remove("point-tooltip--noimg");
+    }
+    if (pointTooltipImg) {
+      pointTooltipImg.removeAttribute("src");
+      pointTooltipImg.hidden = true;
+    }
+    if (pointTooltipWhen) pointTooltipWhen.textContent = "";
+    if (pointTooltipWhat) pointTooltipWhat.textContent = "";
+  }
+
+  function positionPointTooltip(clientX, clientY) {
+    if (!pointTooltip || pointTooltip.hidden) return;
+    const margin = 10;
+    const gap = 16;
+    const rect = pointTooltip.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    let x = clientX + gap;
+    let y = clientY + gap;
+    if (x + w > window.innerWidth - margin) x = clientX - w - gap;
+    if (y + h > window.innerHeight - margin) y = clientY - h - gap;
+    x = Math.max(margin, Math.min(x, window.innerWidth - w - margin));
+    y = Math.max(margin, Math.min(y, window.innerHeight - h - margin));
+    pointTooltip.style.left = `${Math.round(x)}px`;
+    pointTooltip.style.top = `${Math.round(y)}px`;
+  }
+
+  function showPointTooltipForEvent(evRow, clientX, clientY) {
+    if (!pointTooltip || !pointTooltipWhen || !pointTooltipWhat) return;
+    pointTooltipWhen.textContent = fmtTime(evRow.start_time_millis);
+    const whatRaw = String(evRow.what_summary ?? "").trim();
+    pointTooltipWhat.textContent =
+      whatRaw.length > 140 ? `${whatRaw.slice(0, 140)}…` : whatRaw || "—";
+
+    const file = captureFilenameFromRow(evRow);
+    const hasFile = Boolean(file);
+    pointTooltip.classList.toggle("point-tooltip--noimg", !hasFile);
+
+    const token = ++tooltipImgToken;
+    if (hasFile && pointTooltipImg) {
+      pointTooltipImg.hidden = false;
+      pointTooltipImg.alt = `Preview #${evRow.id}`;
+      const src = `./data/captures/${encodeURIComponent(file)}`;
+      pointTooltipImg.onload = () => {
+        if (token !== tooltipImgToken) return;
+        requestAnimationFrame(() => positionPointTooltip(clientX, clientY));
+      };
+      pointTooltipImg.onerror = () => {
+        if (token !== tooltipImgToken) return;
+        pointTooltipImg.hidden = true;
+        pointTooltipImg.removeAttribute("src");
+        pointTooltip.classList.add("point-tooltip--noimg");
+        requestAnimationFrame(() => positionPointTooltip(clientX, clientY));
+      };
+      pointTooltipImg.src = src;
+    } else if (pointTooltipImg) {
+      pointTooltipImg.hidden = true;
+      pointTooltipImg.removeAttribute("src");
+    }
+
+    pointTooltip.hidden = false;
+    requestAnimationFrame(() => positionPointTooltip(clientX, clientY));
+  }
+
+  function flushHoverPick() {
+    hoverPickRaf = null;
+    const h = pendingHover;
+    if (!h) return;
+    pendingHover = null;
+    const idx = pickNearestEventAtClient(h.x, h.y);
+    if (idx === -1) {
+      hidePointTooltip();
+      return;
+    }
+    if (idx === lastHoverIdx && pointTooltip && !pointTooltip.hidden) {
+      positionPointTooltip(h.x, h.y);
+      return;
+    }
+    lastHoverIdx = idx;
+    showPointTooltipForEvent(events[idx], h.x, h.y);
+  }
+
+  if (pointTooltip) {
+    renderer.domElement.addEventListener("pointermove", (ev) => {
+      if (ev.pointerType === "touch") {
+        hidePointTooltip();
+        return;
+      }
+      if (ev.buttons !== 0) {
+        hidePointTooltip();
+        return;
+      }
+      pendingHover = { x: ev.clientX, y: ev.clientY };
+      if (hoverPickRaf == null) {
+        hoverPickRaf = requestAnimationFrame(flushHoverPick);
+      }
+    });
+    renderer.domElement.addEventListener("pointerleave", hidePointTooltip);
+    renderer.domElement.addEventListener("pointercancel", hidePointTooltip);
+  }
+
   renderer.domElement.addEventListener("pointerdown", (ev) => {
     if (ev.button !== 0) return;
+    if (pointTooltip) hidePointTooltip();
     pickPointer = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
   });
 
